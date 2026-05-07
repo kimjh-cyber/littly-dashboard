@@ -144,8 +144,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
       <div class="kg" id="w-kpi"></div>
       <div class="tb" id="w-tabs">
         <button class="t active" onclick="showW('signup',this)">신규 회원가입</button>
-        <button class="t" onclick="showW('total',this)">전체 전환</button>
-        <button class="t" onclick="showW('revenue',this)">전체 매출</button>
+        <button class="t" onclick="showW('overview',this)">전체 전환 / 매출</button>
         <div class="tsep"></div>
         <button class="t detail" onclick="showW('newrenew',this)">신규 / 갱신</button>
         <button class="t detail" onclick="showW('paytype',this)">월결제 / 연결제</button>
@@ -154,7 +153,17 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
         <button class="t detail" onclick="showW('cancel',this)">취소</button>
       </div>
       <div id="w-single" class="card"><div class="ct" id="wt"></div><div id="wl" class="leg"></div><div style="position:relative;height:230px"><canvas id="wC"></canvas></div></div>
+      <div id="w-overview" style="display:none">
+        <div class="r2">
+          <div class="card" style="margin-bottom:0"><div class="ct">전체 전환 추이</div><div class="leg">leg(C2,'전체전환(건)')</div><div style="position:relative;height:200px"><canvas id="wOv1"></canvas></div></div>
+          <div class="card" style="margin-bottom:0"><div class="ct">전체 매출 추이</div><div class="leg">leg(C3,'총매출')</div><div style="position:relative;height:200px"><canvas id="wOv2"></canvas></div></div>
+        </div>
+      </div>
       <div id="w-double" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="card" style="margin-bottom:0;border-top:2px solid var(--blue)"><div class="ct" id="wd-sum-t1"></div><div style="position:relative;height:130px"><canvas id="wSum1"></canvas></div></div>
+          <div class="card" style="margin-bottom:0;border-top:2px solid var(--green)"><div class="ct" id="wd-sum-t2"></div><div style="position:relative;height:130px"><canvas id="wSum2"></canvas></div></div>
+        </div>
         <div class="r2">
           <div class="card" style="margin-bottom:0"><div class="ct" id="wd-t1"></div><div id="wd-l1" class="leg"></div><div style="position:relative;height:200px"><canvas id="wD1"></canvas></div></div>
           <div class="card" style="margin-bottom:0"><div class="ct" id="wd-t2"></div><div id="wd-l2" class="leg"></div><div style="position:relative;height:200px"><canvas id="wD2"></canvas></div></div>
@@ -169,8 +178,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
       <div class="kg" id="m-kpi"></div>
       <div class="tb" id="m-tabs">
         <button class="t active" onclick="showM('signup',this)">신규 회원가입</button>
-        <button class="t" onclick="showM('total',this)">전체 전환</button>
-        <button class="t" onclick="showM('revenue',this)">전체 매출</button>
+        <button class="t" onclick="showM('overview',this)">전체 전환 / 매출</button>
         <div class="tsep"></div>
         <button class="t detail" onclick="showM('newrenew',this)">신규 / 갱신</button>
         <button class="t detail" onclick="showM('paytype',this)">월결제 / 연결제</button>
@@ -179,7 +187,17 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
         <button class="t detail" onclick="showM('cancel',this)">취소</button>
       </div>
       <div id="m-single" class="card"><div class="ct" id="mt"></div><div id="ml" class="leg"></div><div style="position:relative;height:230px"><canvas id="mC"></canvas></div></div>
+      <div id="m-overview" style="display:none">
+        <div class="r2">
+          <div class="card" style="margin-bottom:0"><div class="ct">전체 전환 추이</div><div style="position:relative;height:200px"><canvas id="mOv1"></canvas></div></div>
+          <div class="card" style="margin-bottom:0"><div class="ct">전체 매출 추이</div><div style="position:relative;height:200px"><canvas id="mOv2"></canvas></div></div>
+        </div>
+      </div>
       <div id="m-double" style="display:none">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div class="card" style="margin-bottom:0;border-top:2px solid var(--blue)"><div class="ct" id="md-sum-t1"></div><div style="position:relative;height:130px"><canvas id="mSum1"></canvas></div></div>
+          <div class="card" style="margin-bottom:0;border-top:2px solid var(--green)"><div class="ct" id="md-sum-t2"></div><div style="position:relative;height:130px"><canvas id="mSum2"></canvas></div></div>
+        </div>
         <div class="r2">
           <div class="card" style="margin-bottom:0"><div class="ct" id="md-t1"></div><div id="md-l1" class="leg"></div><div style="position:relative;height:200px"><canvas id="mD1"></canvas></div></div>
           <div class="card" style="margin-bottom:0"><div class="ct" id="md-t2"></div><div id="md-l2" class="leg"></div><div style="position:relative;height:200px"><canvas id="mD2"></canvas></div></div>
@@ -233,7 +251,7 @@ function mkF(l,d,c){return{label:l,data:d,borderColor:c,backgroundColor:c+'22',f
 
 let WK={},MO={},MRR={};
 let wR={s:0,e:0},mR={s:0,e:0};
-let ch={wC:null,wD1:null,wD2:null,mC:null,mD1:null,mD2:null,mrrC:null};
+let ch={wC:null,wOv1:null,wOv2:null,wSum1:null,wSum2:null,wD1:null,wD2:null,mC:null,mOv1:null,mOv2:null,mSum1:null,mSum2:null,mD1:null,mD2:null,mrrC:null};
 
 function isoWeek(d){const dt=new Date(d);dt.setHours(0,0,0,0);dt.setDate(dt.getDate()+4-(dt.getDay()||7));const y=new Date(dt.getFullYear(),0,1);return Math.ceil(((dt-y)/86400000+1)/7);}
 function getWk(d){return`${d.getFullYear()}_${isoWeek(d)}`;}
@@ -424,37 +442,72 @@ const PK=['newrenew','paytype','plan','cancel'];
 
 function showW(k,b){
   document.querySelectorAll('#w-tabs .t').forEach(t=>t.classList.remove('active'));if(b)b.classList.add('active');
-  kill('wC','wD1','wD2');const lb=slW(WK.lb),c=wCfg(k);
-  if(c.s){
-    document.getElementById('w-single').style.display='block';document.getElementById('w-double').style.display='none';
-    document.getElementById('wt').textContent=c.title;document.getElementById('wl').innerHTML=c.leg;
-    mk('wC',lb,sDs(c.ds,slW),c.yF);
-  }else{
-    document.getElementById('w-single').style.display='none';document.getElementById('w-double').style.display='block';
+  kill('wC','wOv1','wOv2','wSum1','wSum2','wD1','wD2');
+  const lb=slW(WK.lb);
+  const single=document.getElementById('w-single');
+  const overview=document.getElementById('w-overview');
+  const dbl=document.getElementById('w-double');
+  const pw=document.getElementById('w-portion');
+  single.style.display='none';overview.style.display='none';dbl.style.display='none';pw.style.display='none';
+
+  if(k==='signup'){
+    single.style.display='block';
+    document.getElementById('wt').textContent='주간 신규 회원가입';
+    document.getElementById('wl').innerHTML=leg(C1,'신규가입(명)');
+    mk('wC',lb,sDs([mkF('',WK.signup,C1)],slW),v=>v.toLocaleString());
+  } else if(k==='overview'){
+    overview.style.display='block';
+    mk('wOv1',lb,sDs([mkF('',WK.total,C2)],slW),v=>v+'건');
+    mk('wOv2',lb,sDs([mkF('총매출',WK.rev,C3),mkL('순매출',WK.net_r,'#0a5c3a',[4,3])],slW),v=>fmtM(v));
+  } else {
+    // 상세 탭: 상단 요약 + 하단 상세
+    dbl.style.display='block';
+    // 상단 요약 (전체 전환 / 전체 매출)
+    document.getElementById('wd-sum-t1').textContent='전체 전환';
+    document.getElementById('wd-sum-t2').textContent='전체 매출';
+    mk('wSum1',lb,sDs([mkF('',WK.total,C2)],slW),v=>v+'건');
+    mk('wSum2',lb,sDs([mkF('',WK.rev,C3)],slW),v=>fmtM(v));
+    // 하단 상세
+    const c=wCfg(k);
     document.getElementById('wd-t1').textContent=c.t1;document.getElementById('wd-l1').innerHTML=c.l1;
     document.getElementById('wd-t2').textContent=c.t2;document.getElementById('wd-l2').innerHTML=c.l2;
     document.getElementById('w-note').textContent=c.note||'';
     mk('wD1',lb,sDs(c.d1,slW),c.y1);mk('wD2',lb,sDs(c.d2,slW),c.y2);
+    pw.style.display='block';renderPortion('w',k,wR.e,'w-pt','w-pg');
   }
-  const pw=document.getElementById('w-portion');
-  if(PK.includes(k)){pw.style.display='block';renderPortion('w',k,wR.e,'w-pt','w-pg');}else pw.style.display='none';
 }
 function showM(k,b){
   document.querySelectorAll('#m-tabs .t').forEach(t=>t.classList.remove('active'));if(b)b.classList.add('active');
-  kill('mC','mD1','mD2');const lb=slM(MO.lb),c=mCfg(k);
-  if(c.s){
-    document.getElementById('m-single').style.display='block';document.getElementById('m-double').style.display='none';
-    document.getElementById('mt').textContent=c.title;document.getElementById('ml').innerHTML=c.leg;
-    mk('mC',lb,sDs(c.ds,slM),c.yF);
-  }else{
-    document.getElementById('m-single').style.display='none';document.getElementById('m-double').style.display='block';
+  kill('mC','mOv1','mOv2','mSum1','mSum2','mD1','mD2');
+  const lb=slM(MO.lb);
+  const single=document.getElementById('m-single');
+  const overview=document.getElementById('m-overview');
+  const dbl=document.getElementById('m-double');
+  const pm=document.getElementById('m-portion');
+  single.style.display='none';overview.style.display='none';dbl.style.display='none';pm.style.display='none';
+
+  if(k==='signup'){
+    single.style.display='block';
+    document.getElementById('mt').textContent='월별 신규 회원가입';
+    document.getElementById('ml').innerHTML=leg(C1,'신규가입(명)');
+    mk('mC',lb,sDs([mkF('',MO.signup,C1)],slM),v=>v.toLocaleString());
+  } else if(k==='overview'){
+    overview.style.display='block';
+    mk('mOv1',lb,sDs([mkF('',MO.total,C2)],slM),v=>v+'건');
+    mk('mOv2',lb,sDs([mkF('총매출',MO.rev,C3),mkL('순매출',MO.net_r,'#0a5c3a',[4,3])],slM),v=>fmtM(v));
+  } else {
+    dbl.style.display='block';
+    document.getElementById('md-sum-t1').textContent='전체 전환';
+    document.getElementById('md-sum-t2').textContent='전체 매출';
+    mk('mSum1',lb,sDs([mkF('',MO.total,C2)],slM),v=>v+'건');
+    mk('mSum2',lb,sDs([mkF('',MO.rev,C3)],slM),v=>fmtM(v));
+    const c=mCfg(k);
     document.getElementById('md-t1').textContent=c.t1;document.getElementById('md-l1').innerHTML=c.l1;
     document.getElementById('md-t2').textContent=c.t2;document.getElementById('md-l2').innerHTML=c.l2;
     document.getElementById('m-note').textContent=c.note||'';
     mk('mD1',lb,sDs(c.d1,slM),c.y1);mk('mD2',lb,sDs(c.d2,slM),c.y2);
+    pm.style.display='block';renderPortion('m',k,mR.e,'m-pt','m-pg');
   }
-  const pm=document.getElementById('m-portion');
-  if(PK.includes(k)){pm.style.display='block';renderPortion('m',k,mR.e,'m-pt','m-pg');}else pm.style.display='none';
 }
 function showMRR(k,b){
   document.querySelectorAll('#mrr-tabs .t').forEach(t=>t.classList.remove('active'));if(b)b.classList.add('active');
@@ -518,7 +571,7 @@ function renderPortion(view,k,idx,tid,gid){
 
 function wCfg(k){const m={
   signup:{s:1,title:'주간 신규 회원가입',leg:leg(C1,'신규가입(명)'),ds:[mkF('',WK.signup,C1)],yF:v=>v.toLocaleString()},
-  total:{s:1,title:'주간 전체 전환',leg:leg(C2,'전체전환(건)'),ds:[mkF('',WK.total,C2)],yF:v=>v+'건'},
+  total:{s:1,title:'주간 전체 전환',leg:leg(C2,'전체전환(건)'),ds:[mkF('',WK.total,C2)],yF:v=>v+'건'}, // legacy
   revenue:{s:1,title:'주간 총 매출 & 순 매출',leg:leg(C3,'총매출')+leg('#0a5c3a','순매출'),ds:[mkF('총매출',WK.rev,C3),mkL('순매출',WK.net_r,'#0a5c3a',[4,3])],yF:v=>fmtM(v)},
   newrenew:{s:0,t1:'신규/갱신 — 건수',l1:leg(C1,'신규')+leg(C2,'갱신'),d1:[mkL('',WK.new_c,C1),mkL('',WK.ren_c,C2,[5,4])],y1:v=>v+'건',t2:'신규/갱신 — 매출',l2:leg(C1,'신규')+leg(C2,'갱신'),d2:[mkL('',WK.new_r,C1),mkL('',WK.ren_r,C2,[5,4])],y2:v=>fmtM(v)},
   paytype:{s:0,t1:'월결제/연결제 — 건수',l1:leg(C1,'월결제')+leg(C2,'연결제'),d1:[mkL('',WK.mon_c,C1),mkL('',WK.yr_c,C2,[5,4])],y1:v=>v+'건',t2:'월결제/연결제 — 매출',l2:leg(C1,'월결제')+leg(C2,'연결제'),d2:[mkL('',WK.mon_r,C1),mkL('',WK.yr_r,C2,[5,4])],y2:v=>fmtM(v)},
