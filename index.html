@@ -51,6 +51,9 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 .t{font-size:12px;padding:5px 11px;border-radius:6px;border:0.5px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;transition:all 0.15s;white-space:nowrap;}
 .t:hover{color:var(--text);border-color:var(--border2);}
 .t.active{background:var(--blue-dim);color:var(--blue);border-color:rgba(26,110,245,0.3);}
+.t.detail.active{background:rgba(124,92,232,0.08);color:#7c5ce8;border-color:rgba(124,92,232,0.3);}
+.t.detail{color:var(--text2);}
+.t.detail:hover{color:#7c5ce8;border-color:rgba(124,92,232,0.2);}
 .tsep{width:0.5px;height:18px;background:var(--border);margin:0 3px;}
 .card{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:10px;}
 .ct{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:9px;}
@@ -144,11 +147,11 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
         <button class="t" onclick="showW('total',this)">전체 전환</button>
         <button class="t" onclick="showW('revenue',this)">전체 매출</button>
         <div class="tsep"></div>
-        <button class="t" onclick="showW('newrenew',this)">신규 / 갱신</button>
-        <button class="t" onclick="showW('paytype',this)">월결제 / 연결제</button>
-        <button class="t" onclick="showW('plan',this)">프로 / 브랜드</button>
+        <button class="t detail" onclick="showW('newrenew',this)">신규 / 갱신</button>
+        <button class="t detail" onclick="showW('paytype',this)">월결제 / 연결제</button>
+        <button class="t detail" onclick="showW('plan',this)">프로 / 브랜드</button>
         <div class="tsep"></div>
-        <button class="t" onclick="showW('cancel',this)">취소</button>
+        <button class="t detail" onclick="showW('cancel',this)">취소</button>
       </div>
       <div id="w-single" class="card"><div class="ct" id="wt"></div><div id="wl" class="leg"></div><div style="position:relative;height:230px"><canvas id="wC"></canvas></div></div>
       <div id="w-double" style="display:none">
@@ -169,11 +172,11 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
         <button class="t" onclick="showM('total',this)">전체 전환</button>
         <button class="t" onclick="showM('revenue',this)">전체 매출</button>
         <div class="tsep"></div>
-        <button class="t" onclick="showM('newrenew',this)">신규 / 갱신</button>
-        <button class="t" onclick="showM('paytype',this)">월결제 / 연결제</button>
-        <button class="t" onclick="showM('plan',this)">프로 / 브랜드</button>
+        <button class="t detail" onclick="showM('newrenew',this)">신규 / 갱신</button>
+        <button class="t detail" onclick="showM('paytype',this)">월결제 / 연결제</button>
+        <button class="t detail" onclick="showM('plan',this)">프로 / 브랜드</button>
         <div class="tsep"></div>
-        <button class="t" onclick="showM('cancel',this)">취소</button>
+        <button class="t detail" onclick="showM('cancel',this)">취소</button>
       </div>
       <div id="m-single" class="card"><div class="ct" id="mt"></div><div id="ml" class="leg"></div><div style="position:relative;height:230px"><canvas id="mC"></canvas></div></div>
       <div id="m-double" style="display:none">
@@ -336,7 +339,16 @@ function process(upgrades,payments,members){
 }
 
 function renderAll(){
-  wR={s:0,e:WK.lb.length-1};mR={s:0,e:MO.lb.length-1};
+  // 주간: 2026년 1주부터 마지막 주까지
+  const wStart = WK.lb.findIndex(l => l === '1주' || l.includes('26-1주'));
+  const wS = wStart >= 0 ? wStart : 0;
+  wR = {s: wS, e: WK.lb.length-1};
+
+  // 월간: 26-01부터 마지막 월까지
+  const mStart = MO.lb.findIndex(l => l === '26-01');
+  const mS = mStart >= 0 ? mStart : 0;
+  mR = {s: mS, e: MO.lb.length-1};
+
   initSelects();renderWKpi();renderMKpi();renderMRRHero();
   showW('signup',document.querySelector('#w-tabs .t'));updateSelects('w');
 }
@@ -344,8 +356,20 @@ function initSelects(){
   const rs=document.getElementById('rs-w'),re=document.getElementById('re-w');
   const ms=document.getElementById('rs-m'),me=document.getElementById('re-m');
   rs.innerHTML=re.innerHTML=ms.innerHTML=me.innerHTML='';
-  WK.lb.forEach((l,i)=>{rs.innerHTML+=`<option value="${i}">${l}</option>`;re.innerHTML+=`<option value="${i}"${i===WK.lb.length-1?' selected':''}>${l}</option>`;});
-  MO.lb.forEach((l,i)=>{ms.innerHTML+=`<option value="${i}">${l}</option>`;me.innerHTML+=`<option value="${i}"${i===MO.lb.length-1?' selected':''}>${l}</option>`;});
+
+  // 주간 셀렉트 - 2026_1주 기본 선택
+  const wDefS = WK.lb.findIndex(l => l==='1주' || l.includes('26-1주'));
+  WK.lb.forEach((l,i)=>{
+    rs.innerHTML+=`<option value="${i}"${i===Math.max(0,wDefS)?' selected':''}>${l}</option>`;
+    re.innerHTML+=`<option value="${i}"${i===WK.lb.length-1?' selected':''}>${l}</option>`;
+  });
+
+  // 월간 셀렉트 - 26-01 기본 선택
+  const mDefS = MO.lb.findIndex(l => l==='26-01');
+  MO.lb.forEach((l,i)=>{
+    ms.innerHTML+=`<option value="${i}"${i===Math.max(0,mDefS)?' selected':''}>${l}</option>`;
+    me.innerHTML+=`<option value="${i}"${i===MO.lb.length-1?' selected':''}>${l}</option>`;
+  });
 }
 function updateSelects(v){
   const w=v==='w';
