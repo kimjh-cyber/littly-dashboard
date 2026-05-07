@@ -254,7 +254,7 @@ let ch={wC:null,wOv1:null,wOv2:null,wSum1:null,wSum2:null,wD1:null,wD2:null,mC:n
 function isoWeek(d){const dt=new Date(d);dt.setHours(0,0,0,0);dt.setDate(dt.getDate()+4-(dt.getDay()||7));const y=new Date(dt.getFullYear(),0,1);return Math.ceil(((dt-y)/86400000+1)/7);}
 function getWk(d){return`${d.getFullYear()}_${isoWeek(d)}`;}
 function getMo(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
-function empty(){return{total:0,rev:0,new_c:0,new_r:0,ren_c:0,ren_r:0,pm_c:0,pm_r:0,py_c:0,py_r:0,bm_c:0,bm_r:0,by_c:0,by_r:0,cancel_c:0,cancel_r:0,signup:0};}
+function empty(){return{total:0,rev:0,new_c:0,new_r:0,ren_c:0,ren_r:0,pm_c:0,pm_r:0,py_c:0,py_r:0,bm_c:0,bm_r:0,by_c:0,by_r:0,cancel_c:0,cancel_r:0,signup:0,new_pm_c:0,new_pm_r:0,new_bm_c:0,new_bm_r:0,ren_pm_c:0,ren_pm_r:0,ren_bm_c:0,ren_bm_r:0};}
 
 function process(upgrades,payments,members){
   const toD=s=>s?new Date(s.replace(' ','T')):null;
@@ -300,6 +300,11 @@ function process(upgrades,payments,members){
   WK.mon_r=WK.pm_r.map((_,i)=>WK.pm_r[i]+WK.bm_r[i]);WK.yr_r=WK.py_r.map((_,i)=>WK.py_r[i]+WK.by_r[i]);
   WK.pro_r=WK.pm_r.map((_,i)=>WK.pm_r[i]+WK.py_r[i]);WK.biz_r=WK.bm_r.map((_,i)=>WK.bm_r[i]+WK.by_r[i]);
   WK.net_r=WK.rev.map((_,i)=>WK.rev[i]-WK.cancel_r[i]);
+  // 신규/갱신 × 플랜 교차 데이터 - 주간
+  WK.new_pro_c=sortWks.map(wk=>wkD[wk].new_pm_c||0);WK.new_biz_c=sortWks.map(wk=>wkD[wk].new_bm_c||0);
+  WK.ren_pro_c=sortWks.map(wk=>wkD[wk].ren_pm_c||0);WK.ren_biz_c=sortWks.map(wk=>wkD[wk].ren_bm_c||0);
+  WK.new_pro_r=sortWks.map(wk=>wkD[wk].new_pm_r||0);WK.new_biz_r=sortWks.map(wk=>wkD[wk].new_bm_r||0);
+  WK.ren_pro_r=sortWks.map(wk=>wkD[wk].ren_pm_r||0);WK.ren_biz_r=sortWks.map(wk=>wkD[wk].ren_bm_r||0);
 
   // 월간
   const moD={};
@@ -324,6 +329,11 @@ function process(upgrades,payments,members){
   MO.mon_r=MO.pm_r.map((_,i)=>MO.pm_r[i]+MO.bm_r[i]);MO.yr_r=MO.py_r.map((_,i)=>MO.py_r[i]+MO.by_r[i]);
   MO.pro_r=MO.pm_r.map((_,i)=>MO.pm_r[i]+MO.py_r[i]);MO.biz_r=MO.bm_r.map((_,i)=>MO.bm_r[i]+MO.by_r[i]);
   MO.net_r=MO.rev.map((_,i)=>MO.rev[i]-MO.cancel_r[i]);
+  // 신규/갱신 × 플랜 교차 - 월간
+  MO.new_pro_c=sortMos.map(mo=>moD[mo].new_pm_c||0);MO.new_biz_c=sortMos.map(mo=>moD[mo].new_bm_c||0);
+  MO.ren_pro_c=sortMos.map(mo=>moD[mo].ren_pm_c||0);MO.ren_biz_c=sortMos.map(mo=>moD[mo].ren_bm_c||0);
+  MO.new_pro_r=sortMos.map(mo=>moD[mo].new_pm_r||0);MO.new_biz_r=sortMos.map(mo=>moD[mo].new_bm_r||0);
+  MO.ren_pro_r=sortMos.map(mo=>moD[mo].ren_pm_r||0);MO.ren_biz_r=sortMos.map(mo=>moD[mo].ren_bm_r||0);
 
   // MRR
   const now=new Date();
@@ -431,10 +441,15 @@ function renderMRRHero(){
 }
 
 function kill(...ids){ids.forEach(id=>{if(ch[id]){ch[id].destroy();ch[id]=null;}});}
-function mk(id,lb,ds,yF){ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels:lb,datasets:ds},options:opts(yF)});}
+function mk(id,lb,ds,yF,stacked){
+  const isStacked=!!stacked;
+  const type=isStacked?'bar':'line';
+  const extraOpts=isStacked?{scales:{x:{stacked:true,grid:{color:GR},ticks:{color:TR,font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:13}},y:{stacked:true,beginAtZero:true,grid:{color:GR},ticks:{color:TR,font:{size:10},callback:yF}}}}:opts(yF);
+  ch[id]=new Chart(document.getElementById(id),{type,data:{labels:lb,datasets:ds},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},...extraOpts}});
+}
 function slW(a){return a.slice(wR.s,wR.e+1);}
 function slM(a){return a.slice(mR.s,mR.e+1);}
-function sDs(ds,fn){return ds.map(d=>({...d,data:fn(d.data)}));}
+function sDs(ds,fn){return ds.map(d=>({...d,data:fn(d.data),borderRadius:d.backgroundColor?3:0}));}
 
 const PK=['newrenew','paytype','plan','cancel'];
 
@@ -470,7 +485,7 @@ function showW(k,b){
     document.getElementById('wd-t1').textContent=c.t1;document.getElementById('wd-l1').innerHTML=c.l1;
     document.getElementById('wd-t2').textContent=c.t2;document.getElementById('wd-l2').innerHTML=c.l2;
     document.getElementById('w-note').textContent=c.note||'';
-    mk('wD1',lb,sDs(c.d1,slW),c.y1);mk('wD2',lb,sDs(c.d2,slW),c.y2);
+    mk('wD1',lb,sDs(c.d1,slW),c.y1,c.stacked);mk('wD2',lb,sDs(c.d2,slW),c.y2,c.stacked);
     pw.style.display='block';renderPortion('w',k,wR.e,'w-pt','w-pg');
   }
 }
@@ -502,7 +517,7 @@ function showM(k,b){
     document.getElementById('md-t1').textContent=c.t1;document.getElementById('md-l1').innerHTML=c.l1;
     document.getElementById('md-t2').textContent=c.t2;document.getElementById('md-l2').innerHTML=c.l2;
     document.getElementById('m-note').textContent=c.note||'';
-    mk('mD1',lb,sDs(c.d1,slM),c.y1);mk('mD2',lb,sDs(c.d2,slM),c.y2);
+    mk('mD1',lb,sDs(c.d1,slM),c.y1,c.stacked);mk('mD2',lb,sDs(c.d2,slM),c.y2,c.stacked);
     pm.style.display='block';renderPortion('m',k,mR.e,'m-pt','m-pg');
   }
 }
@@ -544,45 +559,224 @@ function applyRange(){
 }
 
 function renderPortion(view,k,idx,tid,gid){
-  const src=view==='w'?WK:MO,lb=view==='w'?WK.lb[idx]:MO.lb[idx];
-  const cfgs={
-    newrenew:{title:'신규/갱신',items:[{label:'신규',c:src.new_c[idx],r:src.new_r[idx],color:C1},{label:'갱신',c:src.ren_c[idx],r:src.ren_r[idx],color:C2}]},
-    paytype:{title:'월결제/연결제',items:[{label:'월결제',c:src.mon_c[idx],r:src.mon_r[idx],color:C1},{label:'연결제',c:src.yr_c[idx],r:src.yr_r[idx],color:C2}]},
-    plan:{title:'프로/브랜드',items:[{label:'Pro',c:src.pro_c[idx],r:src.pro_r[idx],color:C3},{label:'Brand',c:src.biz_c[idx],r:src.biz_r[idx],color:C4}]},
-    cancel:{title:'취소 현황',items:[{label:'취소',c:src.cancel_c[idx],r:src.cancel_r[idx],color:C5},{label:'유효',c:src.total[idx]-src.cancel_c[idx],r:src.rev[idx]-src.cancel_r[idx],color:C3}]},
+  const src=view==='w'?WK:MO, lb=view==='w'?WK.lb[idx]:MO.lb[idx];
+  const totC=src.total[idx], totR=src.rev[idx];
+
+  const tables={
+    newrenew:`<div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:8px">${lb} 기준 · 신규/갱신 × 플랜 교차 분석</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500"></th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:#378ADD;font-weight:500;text-align:right">Pro 건수</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:#0b9e63;font-weight:500;text-align:right">Brand 건수</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500;text-align:right">합계</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:#378ADD;font-weight:500;text-align:right">Pro 매출</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:#0b9e63;font-weight:500;text-align:right">Brand 매출</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500;text-align:right">합계</th>
+        </tr></thead>
+        <tbody>
+          ${[['신규',src.new_pro_c[idx],src.new_biz_c[idx],src.new_c[idx],src.new_pro_r[idx],src.new_biz_r[idx],src.new_r[idx]],
+             ['갱신',src.ren_pro_c[idx],src.ren_biz_c[idx],src.ren_c[idx],src.ren_pro_r[idx],src.ren_biz_r[idx],src.ren_r[idx]],
+             ['합계',src.pro_c[idx],src.biz_c[idx],totC,src.pro_r[idx],src.biz_r[idx],totR]
+          ].map((row,ri)=>`<tr style="${ri===2?'background:var(--color-background-secondary);font-weight:500':''}">
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary)">${row[0]}</td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${row[1].toLocaleString()}건<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">${totC>0?(row[1]/totC*100).toFixed(0):'0'}%</span></td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${row[2].toLocaleString()}건<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">${totC>0?(row[2]/totC*100).toFixed(0):'0'}%</span></td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${row[3].toLocaleString()}건</td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${fmtM(row[4])}원<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">${totR>0?(row[4]/totR*100).toFixed(0):'0'}%</span></td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${fmtM(row[5])}원<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">${totR>0?(row[5]/totR*100).toFixed(0):'0'}%</span></td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${fmtM(row[6])}원</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`,
+    paytype:`<div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:8px">${lb} 기준 · 결제방식 × 플랜 교차 분석</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500"></th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:#378ADD;font-weight:500;text-align:right">Pro 건수</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:#0b9e63;font-weight:500;text-align:right">Brand 건수</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500;text-align:right">합계</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:#378ADD;font-weight:500;text-align:right">Pro 매출</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:#0b9e63;font-weight:500;text-align:right">Brand 매출</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500;text-align:right">합계</th>
+        </tr></thead>
+        <tbody>
+          ${[['월결제',src.pm_c[idx],src.bm_c[idx],src.mon_c[idx],src.pm_r[idx],src.bm_r[idx],src.mon_r[idx]],
+             ['연결제',src.py_c[idx],src.by_c[idx],src.yr_c[idx],src.py_r[idx],src.by_r[idx],src.yr_r[idx]],
+             ['합계',src.pro_c[idx],src.biz_c[idx],totC,src.pro_r[idx],src.biz_r[idx],totR]
+          ].map((row,ri)=>`<tr style="${ri===2?'background:var(--color-background-secondary);font-weight:500':''}">
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary)">${row[0]}</td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${row[1].toLocaleString()}건<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">${totC>0?(row[1]/totC*100).toFixed(0):'0'}%</span></td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${row[2].toLocaleString()}건<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">${totC>0?(row[2]/totC*100).toFixed(0):'0'}%</span></td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${row[3].toLocaleString()}건</td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${fmtM(row[4])}원<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">${totR>0?(row[4]/totR*100).toFixed(0):'0'}%</span></td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${fmtM(row[5])}원<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">${totR>0?(row[5]/totR*100).toFixed(0):'0'}%</span></td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${fmtM(row[6])}원</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`,
+    plan:`<div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:8px">${lb} 기준 · 플랜 × 결제방식 교차 분석</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500"></th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:#378ADD;font-weight:500;text-align:right">월결제 건수</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:#7F77DD;font-weight:500;text-align:right">연결제 건수</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500;text-align:right">합계</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:#378ADD;font-weight:500;text-align:right">월결제 매출</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:#7F77DD;font-weight:500;text-align:right">연결제 매출</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500;text-align:right">합계</th>
+        </tr></thead>
+        <tbody>
+          ${[['Pro',src.pm_c[idx],src.py_c[idx],src.pro_c[idx],src.pm_r[idx],src.py_r[idx],src.pro_r[idx]],
+             ['Brand',src.bm_c[idx],src.by_c[idx],src.biz_c[idx],src.bm_r[idx],src.by_r[idx],src.biz_r[idx]],
+             ['합계',src.mon_c[idx],src.yr_c[idx],totC,src.mon_r[idx],src.yr_r[idx],totR]
+          ].map((row,ri)=>`<tr style="${ri===2?'background:var(--color-background-secondary);font-weight:500':''}">
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary)">${row[0]}</td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${row[1].toLocaleString()}건<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">${totC>0?(row[1]/totC*100).toFixed(0):'0'}%</span></td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${row[2].toLocaleString()}건<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">${totC>0?(row[2]/totC*100).toFixed(0):'0'}%</span></td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${row[3].toLocaleString()}건</td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${fmtM(row[4])}원<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">${totR>0?(row[4]/totR*100).toFixed(0):'0'}%</span></td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${fmtM(row[5])}원<span style="font-size:10px;color:var(--color-text-tertiary);margin-left:4px">${totR>0?(row[5]/totR*100).toFixed(0):'0'}%</span></td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${fmtM(row[6])}원</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`,
+    cancel:`<div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:8px">${lb} 기준 · 취소 현황</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500"></th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500;text-align:right">건수</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500;text-align:right">비율</th>
+          <th style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary);font-weight:500;text-align:right">금액</th>
+        </tr></thead>
+        <tbody>
+          ${[['취소',src.cancel_c[idx],src.cancel_r[idx]],['유효',src.total[idx]-src.cancel_c[idx],src.rev[idx]-src.cancel_r[idx]]].map((row,ri)=>`<tr>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-secondary)">${row[0]}</td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${row[1].toLocaleString()}건</td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${totC>0?(row[1]/totC*100).toFixed(1):'0'}%</td>
+            <td style="padding:6px 8px;border-bottom:0.5px solid var(--color-border-tertiary);text-align:right">${fmtM(row[2])}원</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`,
   };
-  const d=cfgs[k];if(!d)return;
-  document.getElementById(tid).textContent=lb+' · '+d.title+' 비율 분석';
-  const tC=d.items.reduce((a,v)=>a+v.c,0),tR=d.items.reduce((a,v)=>a+v.r,0);
-  document.getElementById(gid).innerHTML=d.items.map(item=>{
-    const cp=tC>0?item.c/tC*100:0,rp=tR>0?item.r/tR*100:0;
-    return`<div class="portion-item">
-      <div class="p-header"><span class="p-label"><span style="width:8px;height:8px;border-radius:2px;background:${item.color};display:inline-block"></span>${item.label}</span>
-        <span class="p-vals"><span>${item.c.toLocaleString()}건</span><span style="color:var(--text3)">·</span><span>${fmtM(item.r)}원</span></span></div>
-      <div class="p-bars">
-        <div class="p-bar-row"><div class="p-bar-hd"><span class="p-bar-label">전환 비중</span><span class="p-bar-pct" style="color:${item.color}">${cp.toFixed(1)}%</span></div><div class="p-bar-bg"><div class="p-bar" style="width:${cp}%;background:${item.color}"></div></div></div>
-        <div class="p-bar-row"><div class="p-bar-hd"><span class="p-bar-label">매출 비중</span><span class="p-bar-pct" style="color:${item.color}">${rp.toFixed(1)}%</span></div><div class="p-bar-bg"><div class="p-bar" style="width:${rp}%;background:${item.color}"></div></div></div>
-      </div></div>`;
-  }).join('');
+  document.getElementById(tid).textContent='';
+  document.getElementById(gid).innerHTML = tables[k] || '';
 }
 
+function mkStacked(datasets){return datasets;}
 function wCfg(k){const m={
   signup:{s:1,title:'주간 신규 회원가입',leg:leg(C1,'신규가입(명)'),ds:[mkF('',WK.signup,C1)],yF:v=>v.toLocaleString()},
-  total:{s:1,title:'주간 전체 전환',leg:leg(C2,'전체전환(건)'),ds:[mkF('',WK.total,C2)],yF:v=>v+'건'}, // legacy
+  total:{s:1,title:'주간 전체 전환',leg:leg(C2,'전체전환(건)'),ds:[mkF('',WK.total,C2)],yF:v=>v+'건'},
   revenue:{s:1,title:'주간 총 매출 & 순 매출',leg:leg(C3,'총매출')+leg('#0a5c3a','순매출'),ds:[mkF('총매출',WK.rev,C3),mkL('순매출',WK.net_r,'#0a5c3a',[4,3])],yF:v=>fmtM(v)},
-  newrenew:{s:0,t1:'신규/갱신 — 건수',l1:leg(C1,'신규')+leg(C2,'갱신'),d1:[mkL('',WK.new_c,C1),mkL('',WK.ren_c,C2,[5,4])],y1:v=>v+'건',t2:'신규/갱신 — 매출',l2:leg(C1,'신규')+leg(C2,'갱신'),d2:[mkL('',WK.new_r,C1),mkL('',WK.ren_r,C2,[5,4])],y2:v=>fmtM(v)},
-  paytype:{s:0,t1:'월결제/연결제 — 건수',l1:leg(C1,'월결제')+leg(C2,'연결제'),d1:[mkL('',WK.mon_c,C1),mkL('',WK.yr_c,C2,[5,4])],y1:v=>v+'건',t2:'월결제/연결제 — 매출',l2:leg(C1,'월결제')+leg(C2,'연결제'),d2:[mkL('',WK.mon_r,C1),mkL('',WK.yr_r,C2,[5,4])],y2:v=>fmtM(v)},
-  plan:{s:0,t1:'프로/브랜드 — 건수',l1:leg(C3,'프로')+leg(C4,'브랜드'),d1:[mkL('',WK.pro_c,C3),mkL('',WK.biz_c,C4,[5,4])],y1:v=>v+'건',t2:'프로/브랜드 — 매출',l2:leg(C3,'프로')+leg(C4,'브랜드'),d2:[mkL('',WK.pro_r,C3),mkL('',WK.biz_r,C4,[5,4])],y2:v=>fmtM(v)},
-  cancel:{s:0,t1:'취소 건수',l1:leg(C5,'취소'),d1:[mkF('',WK.cancel_c,C5)],y1:v=>v+'건',t2:'취소 금액',l2:leg(C5,'취소금액'),d2:[mkF('',WK.cancel_r,C5)],y2:v=>fmtM(v)},
+  newrenew:{s:0,stacked:true,
+    t1:'신규/갱신 × 플랜 — 건수',
+    l1:leg('#378ADD','신규 Pro')+leg('#85B7EB','신규 Brand')+leg('#7F77DD','갱신 Pro')+leg('#AFA9EC','갱신 Brand'),
+    d1:[
+      {label:'신규 Pro',  data:WK.new_pro_c, backgroundColor:'#378ADD',stack:'s'},
+      {label:'신규 Brand',data:WK.new_biz_c, backgroundColor:'#85B7EB',stack:'s'},
+      {label:'갱신 Pro',  data:WK.ren_pro_c, backgroundColor:'#7F77DD',stack:'r'},
+      {label:'갱신 Brand',data:WK.ren_biz_c, backgroundColor:'#AFA9EC',stack:'r'},
+    ],y1:v=>v+'건',
+    t2:'신규/갱신 × 플랜 — 매출',
+    l2:leg('#378ADD','신규 Pro')+leg('#85B7EB','신규 Brand')+leg('#7F77DD','갱신 Pro')+leg('#AFA9EC','갱신 Brand'),
+    d2:[
+      {label:'신규 Pro',  data:WK.new_pro_r, backgroundColor:'#378ADD',stack:'s'},
+      {label:'신규 Brand',data:WK.new_biz_r, backgroundColor:'#85B7EB',stack:'s'},
+      {label:'갱신 Pro',  data:WK.ren_pro_r, backgroundColor:'#7F77DD',stack:'r'},
+      {label:'갱신 Brand',data:WK.ren_biz_r, backgroundColor:'#AFA9EC',stack:'r'},
+    ],y2:v=>fmtM(v)},
+  paytype:{s:0,stacked:true,
+    t1:'결제방식 × 플랜 — 건수',
+    l1:leg('#378ADD','월결제 Pro')+leg('#85B7EB','월결제 Brand')+leg('#7F77DD','연결제 Pro')+leg('#AFA9EC','연결제 Brand'),
+    d1:[
+      {label:'월결제 Pro',  data:WK.pm_c, backgroundColor:'#378ADD',stack:'m'},
+      {label:'월결제 Brand',data:WK.bm_c, backgroundColor:'#85B7EB',stack:'m'},
+      {label:'연결제 Pro',  data:WK.py_c, backgroundColor:'#7F77DD',stack:'y'},
+      {label:'연결제 Brand',data:WK.by_c, backgroundColor:'#AFA9EC',stack:'y'},
+    ],y1:v=>v+'건',
+    t2:'결제방식 × 플랜 — 매출',
+    l2:leg('#378ADD','월결제 Pro')+leg('#85B7EB','월결제 Brand')+leg('#7F77DD','연결제 Pro')+leg('#AFA9EC','연결제 Brand'),
+    d2:[
+      {label:'월결제 Pro',  data:WK.pm_r, backgroundColor:'#378ADD',stack:'m'},
+      {label:'월결제 Brand',data:WK.bm_r, backgroundColor:'#85B7EB',stack:'m'},
+      {label:'연결제 Pro',  data:WK.py_r, backgroundColor:'#7F77DD',stack:'y'},
+      {label:'연결제 Brand',data:WK.by_r, backgroundColor:'#AFA9EC',stack:'y'},
+    ],y2:v=>fmtM(v)},
+  plan:{s:0,stacked:true,
+    t1:'플랜 × 결제방식 — 건수',
+    l1:leg('#378ADD','Pro 월결제')+leg('#7F77DD','Pro 연결제')+leg('#0b9e63','Brand 월결제')+leg('#5ecba1','Brand 연결제'),
+    d1:[
+      {label:'Pro 월결제',  data:WK.pm_c, backgroundColor:'#378ADD',stack:'p'},
+      {label:'Pro 연결제',  data:WK.py_c, backgroundColor:'#7F77DD',stack:'p'},
+      {label:'Brand 월결제',data:WK.bm_c, backgroundColor:'#0b9e63',stack:'b'},
+      {label:'Brand 연결제',data:WK.by_c, backgroundColor:'#5ecba1',stack:'b'},
+    ],y1:v=>v+'건',
+    t2:'플랜 × 결제방식 — 매출',
+    l2:leg('#378ADD','Pro 월결제')+leg('#7F77DD','Pro 연결제')+leg('#0b9e63','Brand 월결제')+leg('#5ecba1','Brand 연결제'),
+    d2:[
+      {label:'Pro 월결제',  data:WK.pm_r, backgroundColor:'#378ADD',stack:'p'},
+      {label:'Pro 연결제',  data:WK.py_r, backgroundColor:'#7F77DD',stack:'p'},
+      {label:'Brand 월결제',data:WK.bm_r, backgroundColor:'#0b9e63',stack:'b'},
+      {label:'Brand 연결제',data:WK.by_r, backgroundColor:'#5ecba1',stack:'b'},
+    ],y2:v=>fmtM(v)},
+  cancel:{s:0,stacked:false,t1:'취소 건수',l1:leg('#e03e3e','취소'),d1:[mkF('',WK.cancel_c,'#e03e3e')],y1:v=>v+'건',t2:'취소 금액',l2:leg('#e03e3e','취소금액'),d2:[mkF('',WK.cancel_r,'#e03e3e')],y2:v=>fmtM(v)},
 };return m[k]||m.signup;}
 function mCfg(k){const m={
   signup:{s:1,title:'월별 신규 회원가입',leg:leg(C1,'신규가입(명)'),ds:[mkF('',MO.signup,C1)],yF:v=>v.toLocaleString()},
   total:{s:1,title:'월별 전체 전환',leg:leg(C2,'전체전환(건)'),ds:[mkF('',MO.total,C2)],yF:v=>v+'건'},
   revenue:{s:1,title:'월별 총 매출 & 순 매출',leg:leg(C3,'총매출')+leg('#0a5c3a','순매출'),ds:[mkF('총매출',MO.rev,C3),mkL('순매출',MO.net_r,'#0a5c3a',[4,3])],yF:v=>fmtM(v)},
-  newrenew:{s:0,t1:'신규/갱신 — 건수',l1:leg(C1,'신규')+leg(C2,'갱신'),d1:[mkL('',MO.new_c,C1),mkL('',MO.ren_c,C2,[5,4])],y1:v=>v+'건',t2:'신규/갱신 — 매출',l2:leg(C1,'신규')+leg(C2,'갱신'),d2:[mkL('',MO.new_r,C1),mkL('',MO.ren_r,C2,[5,4])],y2:v=>fmtM(v)},
-  paytype:{s:0,t1:'월결제/연결제 — 건수',l1:leg(C1,'월결제')+leg(C2,'연결제'),d1:[mkL('',MO.mon_c,C1),mkL('',MO.yr_c,C2,[5,4])],y1:v=>v+'건',t2:'월결제/연결제 — 매출',l2:leg(C1,'월결제')+leg(C2,'연결제'),d2:[mkL('',MO.mon_r,C1),mkL('',MO.yr_r,C2,[5,4])],y2:v=>fmtM(v)},
-  plan:{s:0,t1:'프로/브랜드 — 건수',l1:leg(C3,'프로')+leg(C4,'브랜드'),d1:[mkL('',MO.pro_c,C3),mkL('',MO.biz_c,C4,[5,4])],y1:v=>v+'건',t2:'프로/브랜드 — 매출',l2:leg(C3,'프로')+leg(C4,'브랜드'),d2:[mkL('',MO.pro_r,C3),mkL('',MO.biz_r,C4,[5,4])],y2:v=>fmtM(v)},
-  cancel:{s:0,t1:'취소 건수',l1:leg(C5,'취소'),d1:[mkF('',MO.cancel_c,C5)],y1:v=>v+'건',t2:'취소 금액',l2:leg(C5,'취소금액'),d2:[mkF('',MO.cancel_r,C5)],y2:v=>fmtM(v)},
+  newrenew:{s:0,stacked:true,
+    t1:'신규/갱신 × 플랜 — 건수',
+    l1:leg('#378ADD','신규 Pro')+leg('#85B7EB','신규 Brand')+leg('#7F77DD','갱신 Pro')+leg('#AFA9EC','갱신 Brand'),
+    d1:[
+      {label:'신규 Pro',  data:MO.new_pro_c, backgroundColor:'#378ADD',stack:'s'},
+      {label:'신규 Brand',data:MO.new_biz_c, backgroundColor:'#85B7EB',stack:'s'},
+      {label:'갱신 Pro',  data:MO.ren_pro_c, backgroundColor:'#7F77DD',stack:'r'},
+      {label:'갱신 Brand',data:MO.ren_biz_c, backgroundColor:'#AFA9EC',stack:'r'},
+    ],y1:v=>v+'건',
+    t2:'신규/갱신 × 플랜 — 매출',
+    l2:leg('#378ADD','신규 Pro')+leg('#85B7EB','신규 Brand')+leg('#7F77DD','갱신 Pro')+leg('#AFA9EC','갱신 Brand'),
+    d2:[
+      {label:'신규 Pro',  data:MO.new_pro_r, backgroundColor:'#378ADD',stack:'s'},
+      {label:'신규 Brand',data:MO.new_biz_r, backgroundColor:'#85B7EB',stack:'s'},
+      {label:'갱신 Pro',  data:MO.ren_pro_r, backgroundColor:'#7F77DD',stack:'r'},
+      {label:'갱신 Brand',data:MO.ren_biz_r, backgroundColor:'#AFA9EC',stack:'r'},
+    ],y2:v=>fmtM(v)},
+  paytype:{s:0,stacked:true,
+    t1:'결제방식 × 플랜 — 건수',
+    l1:leg('#378ADD','월결제 Pro')+leg('#85B7EB','월결제 Brand')+leg('#7F77DD','연결제 Pro')+leg('#AFA9EC','연결제 Brand'),
+    d1:[
+      {label:'월결제 Pro',  data:MO.pm_c, backgroundColor:'#378ADD',stack:'m'},
+      {label:'월결제 Brand',data:MO.bm_c, backgroundColor:'#85B7EB',stack:'m'},
+      {label:'연결제 Pro',  data:MO.py_c, backgroundColor:'#7F77DD',stack:'y'},
+      {label:'연결제 Brand',data:MO.by_c, backgroundColor:'#AFA9EC',stack:'y'},
+    ],y1:v=>v+'건',
+    t2:'결제방식 × 플랜 — 매출',
+    l2:leg('#378ADD','월결제 Pro')+leg('#85B7EB','월결제 Brand')+leg('#7F77DD','연결제 Pro')+leg('#AFA9EC','연결제 Brand'),
+    d2:[
+      {label:'월결제 Pro',  data:MO.pm_r, backgroundColor:'#378ADD',stack:'m'},
+      {label:'월결제 Brand',data:MO.bm_r, backgroundColor:'#85B7EB',stack:'m'},
+      {label:'연결제 Pro',  data:MO.py_r, backgroundColor:'#7F77DD',stack:'y'},
+      {label:'연결제 Brand',data:MO.by_r, backgroundColor:'#AFA9EC',stack:'y'},
+    ],y2:v=>fmtM(v)},
+  plan:{s:0,stacked:true,
+    t1:'플랜 × 결제방식 — 건수',
+    l1:leg('#378ADD','Pro 월결제')+leg('#7F77DD','Pro 연결제')+leg('#0b9e63','Brand 월결제')+leg('#5ecba1','Brand 연결제'),
+    d1:[
+      {label:'Pro 월결제',  data:MO.pm_c, backgroundColor:'#378ADD',stack:'p'},
+      {label:'Pro 연결제',  data:MO.py_c, backgroundColor:'#7F77DD',stack:'p'},
+      {label:'Brand 월결제',data:MO.bm_c, backgroundColor:'#0b9e63',stack:'b'},
+      {label:'Brand 연결제',data:MO.by_c, backgroundColor:'#5ecba1',stack:'b'},
+    ],y1:v=>v+'건',
+    t2:'플랜 × 결제방식 — 매출',
+    l2:leg('#378ADD','Pro 월결제')+leg('#7F77DD','Pro 연결제')+leg('#0b9e63','Brand 월결제')+leg('#5ecba1','Brand 연결제'),
+    d2:[
+      {label:'Pro 월결제',  data:MO.pm_r, backgroundColor:'#378ADD',stack:'p'},
+      {label:'Pro 연결제',  data:MO.py_r, backgroundColor:'#7F77DD',stack:'p'},
+      {label:'Brand 월결제',data:MO.bm_r, backgroundColor:'#0b9e63',stack:'b'},
+      {label:'Brand 연결제',data:MO.by_r, backgroundColor:'#5ecba1',stack:'b'},
+    ],y2:v=>fmtM(v)},
+  cancel:{s:0,stacked:false,t1:'취소 건수',l1:leg('#e03e3e','취소'),d1:[mkF('',MO.cancel_c,'#e03e3e')],y1:v=>v+'건',t2:'취소 금액',l2:leg('#e03e3e','취소금액'),d2:[mkF('',MO.cancel_r,'#e03e3e')],y2:v=>fmtM(v)},
 };return m[k]||m.signup;}
 function mrrCfg(k){const m={
   total:{title:'MRR 추이',leg:leg(C1,'전체 MRR'),ds:[mkF('',MRR.total,C1)],yF:v=>fmtM(v)},
