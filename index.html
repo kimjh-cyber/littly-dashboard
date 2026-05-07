@@ -280,8 +280,17 @@ function process(upgrades,payments,members){
   joined.forEach(p=>{
     addTo(wkD,getWk(p.생성일),s=>{
       s.total++;s.rev+=p.금액;
-      if(p.is_new){s.new_c++;s.new_r+=p.금액;}else{s.ren_c++;s.ren_r+=p.금액;}
       const pl=p.플랜,py=p.결제방식;
+      const isPro=pl==='pro',isBiz=pl==='business';
+      if(p.is_new){
+        s.new_c++;s.new_r+=p.금액;
+        if(isPro){s.new_pm_c++;s.new_pm_r+=p.금액;}
+        else if(isBiz){s.new_bm_c++;s.new_bm_r+=p.금액;}
+      }else{
+        s.ren_c++;s.ren_r+=p.금액;
+        if(isPro){s.ren_pm_c++;s.ren_pm_r+=p.금액;}
+        else if(isBiz){s.ren_bm_c++;s.ren_bm_r+=p.금액;}
+      }
       if(pl==='pro'&&py==='month'){s.pm_c++;s.pm_r+=p.금액;}
       else if(pl==='pro'&&py==='year'){s.py_c++;s.py_r+=p.금액;}
       else if(pl==='business'&&py==='month'){s.bm_c++;s.bm_r+=p.금액;}
@@ -312,8 +321,17 @@ function process(upgrades,payments,members){
   joined.forEach(p=>{
     addTo(moD,getMo(p.생성일),s=>{
       s.total++;s.rev+=p.금액;
-      if(p.is_new){s.new_c++;s.new_r+=p.금액;}else{s.ren_c++;s.ren_r+=p.금액;}
       const pl=p.플랜,py=p.결제방식;
+      const isPro=pl==='pro',isBiz=pl==='business';
+      if(p.is_new){
+        s.new_c++;s.new_r+=p.금액;
+        if(isPro){s.new_pm_c++;s.new_pm_r+=p.금액;}
+        else if(isBiz){s.new_bm_c++;s.new_bm_r+=p.금액;}
+      }else{
+        s.ren_c++;s.ren_r+=p.금액;
+        if(isPro){s.ren_pm_c++;s.ren_pm_r+=p.금액;}
+        else if(isBiz){s.ren_bm_c++;s.ren_bm_r+=p.금액;}
+      }
       if(pl==='pro'&&py==='month'){s.pm_c++;s.pm_r+=p.금액;}
       else if(pl==='pro'&&py==='year'){s.py_c++;s.py_r+=p.금액;}
       else if(pl==='business'&&py==='month'){s.bm_c++;s.bm_r+=p.금액;}
