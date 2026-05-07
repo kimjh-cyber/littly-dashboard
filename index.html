@@ -293,6 +293,7 @@ function process(upgrades,payments,members){
 
   const sortWks=Object.keys(wkD).sort((a,b)=>{const[ay,aw]=a.split('_').map(Number),[by,bw]=b.split('_').map(Number);return ay!==by?ay-by:aw-bw;});
   WK.lb=sortWks.map(wk=>{const[y,w]=wk.split('_');return y==='2026'?w+'주':y.slice(2)+'-'+w+'주';});
+  WK._wks=sortWks;
   const flds=['total','rev','new_c','new_r','ren_c','ren_r','pm_c','pm_r','py_c','py_r','bm_c','bm_r','by_c','by_r','cancel_c','cancel_r','signup'];
   flds.forEach(f=>{WK[f]=sortWks.map(wk=>wkD[wk][f]||0);});
   WK.mon_c=WK.pm_c.map((_,i)=>WK.pm_c[i]+WK.bm_c[i]);WK.yr_c=WK.py_c.map((_,i)=>WK.py_c[i]+WK.by_c[i]);
@@ -301,10 +302,10 @@ function process(upgrades,payments,members){
   WK.pro_r=WK.pm_r.map((_,i)=>WK.pm_r[i]+WK.py_r[i]);WK.biz_r=WK.bm_r.map((_,i)=>WK.bm_r[i]+WK.by_r[i]);
   WK.net_r=WK.rev.map((_,i)=>WK.rev[i]-WK.cancel_r[i]);
   // 신규/갱신 × 플랜 교차 데이터 - 주간
-  WK.new_pro_c=sortWks.map(wk=>wkD[wk].new_pm_c||0);WK.new_biz_c=sortWks.map(wk=>wkD[wk].new_bm_c||0);
-  WK.ren_pro_c=sortWks.map(wk=>wkD[wk].ren_pm_c||0);WK.ren_biz_c=sortWks.map(wk=>wkD[wk].ren_bm_c||0);
-  WK.new_pro_r=sortWks.map(wk=>wkD[wk].new_pm_r||0);WK.new_biz_r=sortWks.map(wk=>wkD[wk].new_bm_r||0);
-  WK.ren_pro_r=sortWks.map(wk=>wkD[wk].ren_pm_r||0);WK.ren_biz_r=sortWks.map(wk=>wkD[wk].ren_bm_r||0);
+  WK.new_pro_c=WK._wks.map(wk=>wkD[wk].new_pm_c||0);WK.new_biz_c=WK._wks.map(wk=>wkD[wk].new_bm_c||0);
+  WK.ren_pro_c=WK._wks.map(wk=>wkD[wk].ren_pm_c||0);WK.ren_biz_c=WK._wks.map(wk=>wkD[wk].ren_bm_c||0);
+  WK.new_pro_r=WK._wks.map(wk=>wkD[wk].new_pm_r||0);WK.new_biz_r=WK._wks.map(wk=>wkD[wk].new_bm_r||0);
+  WK.ren_pro_r=WK._wks.map(wk=>wkD[wk].ren_pm_r||0);WK.ren_biz_r=WK._wks.map(wk=>wkD[wk].ren_bm_r||0);
 
   // 월간
   const moD={};
@@ -323,6 +324,7 @@ function process(upgrades,payments,members){
   memberRows.forEach(m=>{addTo(moD,getMo(m.date),s=>{s.signup++;});});
   const sortMos=Object.keys(moD).sort();
   MO.lb=sortMos.map(mo=>{const[y,m]=mo.split('-');return y.slice(2)+'-'+m;});
+  MO._mos=sortMos;
   flds.forEach(f=>{MO[f]=sortMos.map(mo=>moD[mo][f]||0);});
   MO.mon_c=MO.pm_c.map((_,i)=>MO.pm_c[i]+MO.bm_c[i]);MO.yr_c=MO.py_c.map((_,i)=>MO.py_c[i]+MO.by_c[i]);
   MO.pro_c=MO.pm_c.map((_,i)=>MO.pm_c[i]+MO.py_c[i]);MO.biz_c=MO.bm_c.map((_,i)=>MO.bm_c[i]+MO.by_c[i]);
@@ -330,10 +332,10 @@ function process(upgrades,payments,members){
   MO.pro_r=MO.pm_r.map((_,i)=>MO.pm_r[i]+MO.py_r[i]);MO.biz_r=MO.bm_r.map((_,i)=>MO.bm_r[i]+MO.by_r[i]);
   MO.net_r=MO.rev.map((_,i)=>MO.rev[i]-MO.cancel_r[i]);
   // 신규/갱신 × 플랜 교차 - 월간
-  MO.new_pro_c=sortMos.map(mo=>moD[mo].new_pm_c||0);MO.new_biz_c=sortMos.map(mo=>moD[mo].new_bm_c||0);
-  MO.ren_pro_c=sortMos.map(mo=>moD[mo].ren_pm_c||0);MO.ren_biz_c=sortMos.map(mo=>moD[mo].ren_bm_c||0);
-  MO.new_pro_r=sortMos.map(mo=>moD[mo].new_pm_r||0);MO.new_biz_r=sortMos.map(mo=>moD[mo].new_bm_r||0);
-  MO.ren_pro_r=sortMos.map(mo=>moD[mo].ren_pm_r||0);MO.ren_biz_r=sortMos.map(mo=>moD[mo].ren_bm_r||0);
+  MO.new_pro_c=MO._mos.map(mo=>moD[mo].new_pm_c||0);MO.new_biz_c=MO._mos.map(mo=>moD[mo].new_bm_c||0);
+  MO.ren_pro_c=MO._mos.map(mo=>moD[mo].ren_pm_c||0);MO.ren_biz_c=MO._mos.map(mo=>moD[mo].ren_bm_c||0);
+  MO.new_pro_r=MO._mos.map(mo=>moD[mo].new_pm_r||0);MO.new_biz_r=MO._mos.map(mo=>moD[mo].new_bm_r||0);
+  MO.ren_pro_r=MO._mos.map(mo=>moD[mo].ren_pm_r||0);MO.ren_biz_r=MO._mos.map(mo=>moD[mo].ren_bm_r||0);
 
   // MRR
   const now=new Date();
