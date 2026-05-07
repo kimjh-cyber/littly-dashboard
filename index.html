@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>litt.ly KPI Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0f0f11;
+    --bg2: #16161a;
+    --bg3: #1e1e24;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #f0f0f4;
+    --text2: #9898a8;
+    --text3: #5a5a6e;
+    --blue: #4a9eff;
+    --purple: #9b7fff;
+    --green: #3ecf8e;
+    --amber: #f5a623;
+    --red: #ff5f5f;
+    --blue-dim: rgba(74,158,255,0.12);
+    --purple-dim: rgba(155,127,255,0.12);
+    --green-dim: rgba(62,207,142,0.12);
+    --amber-dim: rgba(245,166,35,0.12);
+    --red-dim: rgba(255,95,95,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Pretendard', 'Apple SD Gothic Neo', -apple-system, sans-serif; min-height: 100vh; }
+
+  /* ── 헤더 ── */
+  .header { padding: 28px 32px 0; display: flex; align-items: center; justify-content: space-between; }
+  .header-left { display: flex; align-items: baseline; gap: 12px; }
+  .brand { font-size: 18px; font-weight: 700; letter-spacing: -0.5px; color: var(--text); }
+  .brand span { color: var(--blue); }
+  .subtitle { font-size: 12px; color: var(--text3); }
+  .last-updated { font-size: 11px; color: var(--text3); background: var(--bg3); padding: 4px 10px; border-radius: 20px; border: 0.5px solid var(--border); }
+
+  /* ── 뷰 스위치 ── */
+  .view-switch { padding: 20px 32px 0; display: flex; gap: 4px; }
+  .vsb { font-size: 13px; font-weight: 500; padding: 7px 20px; border-radius: 8px; border: 0.5px solid var(--border); background: transparent; color: var(--text2); cursor: pointer; transition: all 0.15s; }
+  .vsb:hover { border-color: var(--border2); color: var(--text); }
+  .vsb.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+  /* ── 메인 레이아웃 ── */
+  .main { padding: 20px 32px 40px; }
+  .sec { display: none; }
+  .sec.show { display: block; }
+
+  /* ── 시간 레이블 ── */
+  .period-label { font-size: 12px; color: var(--text3); margin-bottom: 16px; }
+  .period-label strong { color: var(--text2); font-weight: 500; }
+
+  /* ── KPI 카드 그리드 ── */
+  .kg { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .kc { background: var(--bg2); border: 0.5px solid var(--border); border-radius: 10px; padding: 14px 16px; transition: border-color 0.15s; }
+  .kc:hover { border-color: var(--border2); }
+  .kl { font-size: 11px; color: var(--text3); margin-bottom: 6px; letter-spacing: 0.2px; }
+  .kv { font-size: 20px; font-weight: 600; color: var(--text); letter-spacing: -0.5px; line-height: 1; }
+  .ks { font-size: 11px; margin-top: 5px; }
+  .up { color: var(--green); }
+  .dn { color: var(--red); }
+  .fl { color: var(--text3); }
+
+  /* ── 탭 바 ── */
+  .tb { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  .t { font-size: 12px; padding: 5px 12px; border-radius: 6px; border: 0.5px solid var(--border); background: transparent; color: var(--text2); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .t:hover { border-color: var(--border2); color: var(--text); }
+  .t.active { background: var(--blue-dim); color: var(--blue); border-color: rgba(74,158,255,0.3); }
+  .tsep { width: 0.5px; height: 18px; background: var(--border); margin: 0 4px; }
+
+  /* ── 차트 카드 ── */
+  .card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 12px; }
+  .ct { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 10px; }
+  .r2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .leg { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; color: var(--text2); margin-bottom: 10px; }
+  .ld { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: middle; }
+  .note { font-size: 10px; color: var(--text3); margin-top: 6px; margin-bottom: 12px; }
+
+  /* ── MRR 특별 카드 ── */
+  .mrr-hero { background: linear-gradient(135deg, rgba(74,158,255,0.08), rgba(155,127,255,0.08)); border: 0.5px solid rgba(74,158,255,0.2); border-radius: 12px; padding: 20px 24px; margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+  .mrr-main { }
+  .mrr-label { font-size: 12px; color: var(--text3); margin-bottom: 4px; }
+  .mrr-value { font-size: 36px; font-weight: 700; letter-spacing: -1.5px; background: linear-gradient(90deg, var(--blue), var(--purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .mrr-meta { display: flex; gap: 20px; flex-wrap: wrap; }
+  .mrr-item { text-align: center; }
+  .mrr-item-label { font-size: 10px; color: var(--text3); margin-bottom: 2px; }
+  .mrr-item-value { font-size: 14px; font-weight: 600; color: var(--text); }
+
+  @media (max-width: 600px) {
+    .header { padding: 20px 16px 0; flex-wrap: wrap; gap: 8px; }
+    .view-switch { padding: 14px 16px 0; }
+    .main { padding: 14px 16px 32px; }
+    .r2 { grid-template-columns: 1fr; }
+    .mrr-hero { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="brand">litt.ly <span>KPI</span></div>
+    <div class="subtitle">결제 · 매출 · 성장 대시보드</div>
+  </div>
+  <div class="last-updated">Last updated · 2026-05-07</div>
+</div>
+
+<div class="view-switch">
+  <button class="vsb active" onclick="switchV('w',this)">주간 뷰</button>
+  <button class="vsb" onclick="switchV('m',this)">월간 뷰</button>
+  <button class="vsb" onclick="switchV('mrr',this)">MRR</button>
+</div>
+
+<div class="main">
+
+  <!-- ── 주간 뷰 ── -->
+  <div id="sw" class="sec show">
+    <div class="period-label">2026년 18주차 &nbsp;·&nbsp; <strong>전주(17주) 대비</strong></div>
+    <div class="kg" id="w-kpi"></div>
+    <div class="tb" id="w-tabs">
+      <button class="t active" onclick="showW('signup',this)">신규 회원가입</button>
+      <button class="t" onclick="showW('total',this)">전체 전환</button>
+      <button class="t" onclick="showW('revenue',this)">전체 매출</button>
+      <div class="tsep"></div>
+      <button class="t" onclick="showW('newrenew',this)">신규 / 갱신</button>
+      <button class="t" onclick="showW('paytype',this)">월결제 / 연결제</button>
+      <button class="t" onclick="showW('plan',this)">프로 / 브랜드</button>
+      <div class="tsep"></div>
+      <button class="t" onclick="showW('cancel',this)">취소</button>
+    </div>
+    <div id="w-single" class="card"><div class="ct" id="wt"></div><div id="wl" class="leg"></div><div style="position:relative;height:240px"><canvas id="wC" role="img" aria-label="주간 추이"></canvas></div></div>
+    <div id="w-double" style="display:none">
+      <div class="r2">
+        <div class="card" style="margin-bottom:0"><div class="ct" id="wd-t1"></div><div id="wd-l1" class="leg"></div><div style="position:relative;height:210px"><canvas id="wD1" role="img" aria-label="건수"></canvas></div></div>
+        <div class="card" style="margin-bottom:0"><div class="ct" id="wd-t2"></div><div id="wd-l2" class="leg"></div><div style="position:relative;height:210px"><canvas id="wD2" role="img" aria-label="매출"></canvas></div></div>
+      </div>
+      <div class="note" id="w-note"></div>
+    </div>
+  </div>
+
+  <!-- ── 월간 뷰 ── -->
+  <div id="sm" class="sec">
+    <div class="period-label">2026년 4월 기준 &nbsp;·&nbsp; <strong>전월(3월) 대비</strong></div>
+    <div class="kg" id="m-kpi"></div>
+    <div class="tb" id="m-tabs">
+      <button class="t active" onclick="showM('signup',this)">신규 회원가입</button>
+      <button class="t" onclick="showM('total',this)">전체 전환</button>
+      <button class="t" onclick="showM('revenue',this)">전체 매출</button>
+      <div class="tsep"></div>
+      <button class="t" onclick="showM('newrenew',this)">신규 / 갱신</button>
+      <button class="t" onclick="showM('paytype',this)">월결제 / 연결제</button>
+      <button class="t" onclick="showM('plan',this)">프로 / 브랜드</button>
+      <div class="tsep"></div>
+      <button class="t" onclick="showM('cancel',this)">취소</button>
+    </div>
+    <div id="m-single" class="card"><div class="ct" id="mt"></div><div id="ml" class="leg"></div><div style="position:relative;height:240px"><canvas id="mC" role="img" aria-label="월간 추이"></canvas></div></div>
+    <div id="m-double" style="display:none">
+      <div class="r2">
+        <div class="card" style="margin-bottom:0"><div class="ct" id="md-t1"></div><div id="md-l1" class="leg"></div><div style="position:relative;height:210px"><canvas id="mD1" role="img" aria-label="월간 건수"></canvas></div></div>
+        <div class="card" style="margin-bottom:0"><div class="ct" id="md-t2"></div><div id="md-l2" class="leg"></div><div style="position:relative;height:210px"><canvas id="mD2" role="img" aria-label="월간 매출"></canvas></div></div>
+      </div>
+      <div class="note" id="m-note"></div>
+    </div>
+  </div>
+
+  <!-- ── MRR 뷰 ── -->
+  <div id="smrr" class="sec">
+    <div class="period-label">2026년 4월 기준 &nbsp;·&nbsp; <strong>활성 구독 기반 월환산 매출</strong></div>
+    <div class="mrr-hero">
+      <div class="mrr-main">
+        <div class="mrr-label">Current MRR</div>
+        <div class="mrr-value">2,142만원</div>
+        <div style="font-size:12px;color:#3ecf8e;margin-top:4px">▲ 6.1% vs 전월 (2,019만원)</div>
+      </div>
+      <div class="mrr-meta">
+        <div class="mrr-item"><div class="mrr-item-label">Pro MRR</div><div class="mrr-item-value" style="color:#4a9eff">629만원</div></div>
+        <div class="mrr-item"><div class="mrr-item-label">Brand MRR</div><div class="mrr-item-value" style="color:#9b7fff">1,513만원</div></div>
+        <div class="mrr-item"><div class="mrr-item-label">월결제 MRR</div><div class="mrr-item-value">651만원</div></div>
+        <div class="mrr-item"><div class="mrr-item-label">연결제 MRR</div><div class="mrr-item-value">1,485만원</div></div>
+        <div class="mrr-item"><div class="mrr-item-label">활성 구독</div><div class="mrr-item-value">3,398건</div></div>
+        <div class="mrr-item"><div class="mrr-item-label">ARPU</div><div class="mrr-item-value">6,304원</div></div>
+      </div>
+    </div>
+    <div class="tb" id="mrr-tabs">
+      <button class="t active" onclick="showMRR('total',this)">전체 MRR</button>
+      <button class="t" onclick="showMRR('plan',this)">프로 / 브랜드</button>
+      <button class="t" onclick="showMRR('paytype',this)">월결제 / 연결제</button>
+      <button class="t" onclick="showMRR('active',this)">활성 구독수</button>
+      <button class="t" onclick="showMRR('arpu',this)">ARPU</button>
+    </div>
+    <div class="card"><div class="ct" id="mrr-t"></div><div id="mrr-l" class="leg"></div><div style="position:relative;height:260px"><canvas id="mrrC" role="img" aria-label="MRR 추이"></canvas></div></div>
+    <div style="font-size:10px;color:var(--text3);margin-top:-6px">* 종료일 기준 활성 구독 스냅샷 / 월결제 = 금액 그대로, 연결제 = 연간금액 ÷ 12</div>
+  </div>
+
+</div>
+
+<script>
+const C1='#4a9eff', C2='#9b7fff', C3='#3ecf8e', C4='#f5a623', C5='#ff5f5f';
+function fmtW(v){return Math.round(v/10000).toLocaleString()+'만';}
+function fmtM(v){return Math.round(v/10000).toLocaleString()+'만';}
+function leg(c,l){return `<span style="display:flex;align-items:center"><span class="ld" style="background:${c}"></span>${l}</span>`;}
+function kpi(label,val,sub){return `<div class="kc"><div class="kl">${label}</div><div class="kv">${val}</div><div class="ks">${sub}</div></div>`;}
+function wow(a,b){
+  if(!b||b===0) return '<span class="fl">—</span>';
+  const p=(a-b)/b*100;
+  return `<span class="${p>=0?'up':'dn'}">${p>=0?'▲':'▼'} ${Math.abs(p).toFixed(1)}%</span>`;
+}
+
+// ── 차트 기본 옵션 ──
+const gridColor = 'rgba(255,255,255,0.04)';
+const tickColor = 'rgba(255,255,255,0.3)';
+function chartOpts(yF, begin=false){
+  return {responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+    scales:{
+      x:{grid:{color:gridColor}, ticks:{color:tickColor, font:{size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:13}},
+      y:{beginAtZero:begin, grid:{color:gridColor}, ticks:{color:tickColor, font:{size:10}, callback:yF}}
+    }};
+}
+function mkLine(l,d,c,dash){return{label:l,data:d,borderColor:c,backgroundColor:'transparent',tension:0.35,pointRadius:2,pointHoverRadius:5,borderWidth:2,borderDash:dash||[]};}
+function mkFill(l,d,c,c2){return{label:l,data:d,borderColor:c,backgroundColor:c2||c+'20',fill:true,tension:0.35,pointRadius:2,pointHoverRadius:5,borderWidth:2};}
+
+// ── 주간 데이터 (2026년, 실제 raw) ──
+const WK = {
+  lb:['1주','2주','3주','4주','5주','6주','7주','8주','9주','10주','11주','12주','13주','14주','15주','16주','17주','18주','19주'],
+  signup:  [1188,2146,2370,2419,2209,2409,2170,2015,3149,2791,2570,2482,2660,2521,2656,2714,2598,2428,1232],
+  total:   [85,191,198,193,200,166,196,201,253,166,215,194,214,174,204,221,231,195,72],
+  rev:     [3582000,8510198,6932200,7025292,6730699,5979498,5733599,6702799,6597399,5980599,10682359,6167359,5215819,7515160,6636898,7477800,7544599,6864300,2960694],
+  new_c:   [34,64,74,67,74,72,59,61,75,56,65,46,48,59,67,80,66,51,21],
+  ren_c:   [51,127,124,126,126,94,137,140,178,110,150,148,166,115,137,141,165,144,51],
+  pm_c:    [32,72,79,81,79,57,88,92,120,57,74,79,91,41,76,63,87,73,17],
+  py_c:    [18,51,56,36,53,53,36,41,43,34,33,33,37,51,36,39,32,40,22],
+  bm_c:    [14,39,38,47,36,26,44,41,61,42,67,53,69,42,57,82,72,46,17],
+  by_c:    [20,29,25,29,32,30,27,27,29,33,41,28,16,40,35,35,40,35,16],
+  pm_r:    [156800,352899,389400,387898,398699,270298,438100,446299,599599,274799,369500,382599,457499,200900,372499,311000,424099,371500,83300],
+  py_r:    [529200,1499400,1646400,1058400,1558200,1558200,1058400,1205400,1264200,1013400,1038960,1058400,1207440,1511160,1099800,1146600,940800,1355400,661194],
+  bm_r:    [269200,774899,764200,945800,703400,500600,857899,843900,1210400,853600,1317899,1013200,1375400,809900,1085199,1623400,1422900,906200,332800],
+  by_r:    [2626800,5883000,4132200,4633194,4070400,3650400,3379200,4207200,3523200,3838800,7956000,3713160,2175480,4993200,4079400,4396800,4756800,4231200,1883400],
+  cancel_c:[16,42,30,30,30,30,21,24,42,35,32,38,26,37,42,38,41,38,23],
+  cancel_r:[552733,3081754,1809363,1806756,428752,914261,617714,1283127,1007047,588542,3470359,713726,578056,857853,648750,1055213,982491,892715,455163],
+};
+WK.mon_c=WK.pm_c.map((_,i)=>WK.pm_c[i]+WK.bm_c[i]);
+WK.yr_c =WK.py_c.map((_,i)=>WK.py_c[i]+WK.by_c[i]);
+WK.pro_c=WK.pm_c.map((_,i)=>WK.pm_c[i]+WK.py_c[i]);
+WK.biz_c=WK.bm_c.map((_,i)=>WK.bm_c[i]+WK.by_c[i]);
+WK.mon_r=WK.pm_r.map((_,i)=>WK.pm_r[i]+WK.bm_r[i]);
+WK.yr_r =WK.py_r.map((_,i)=>WK.py_r[i]+WK.by_r[i]);
+WK.pro_r=WK.pm_r.map((_,i)=>WK.pm_r[i]+WK.py_r[i]);
+WK.biz_r=WK.bm_r.map((_,i)=>WK.bm_r[i]+WK.by_r[i]);
+WK.net_r=WK.rev.map((_,i)=>WK.rev[i]-WK.cancel_r[i]);
+WK.new_r=[2082400,2171100,3158300,2829293,3465400,2757699,2985600,2418200,2585600,2869500,3998280,2483460,2240400,3297060,3419900,3614200,3508100,3482000,1121400];
+WK.ren_r=[0,6339098,3773900,4196000,3265299,3221800,2771519,4284599,4011799,3111099,6684079,3707419,2998939,4218100,3217000,3977840,4036500,3405820,902900];
+
+// 주간 KPI 카드
+const i18=17,i17=16;
+document.getElementById('w-kpi').innerHTML=
+  kpi('신규 회원가입',WK.signup[i18].toLocaleString()+'명',wow(WK.signup[i18],WK.signup[i17]))+
+  kpi('전체 전환',WK.total[i18]+'건',wow(WK.total[i18],WK.total[i17]))+
+  kpi('총 매출',fmtW(WK.rev[i18])+'원',wow(WK.rev[i18],WK.rev[i17]))+
+  kpi('순 매출',fmtW(WK.net_r[i18])+'원',wow(WK.net_r[i18],WK.net_r[i17]))+
+  kpi('신규 결제',WK.new_c[i18]+'건',wow(WK.new_c[i18],WK.new_c[i17]))+
+  kpi('갱신 결제',WK.ren_c[i18]+'건',wow(WK.ren_c[i18],WK.ren_c[i17]))+
+  kpi('취소',WK.cancel_c[i18]+'건 / '+fmtW(WK.cancel_r[i18])+'원',wow(WK.cancel_c[i18],WK.cancel_c[i17]))+
+  kpi('전환율',(WK.total[i18]/WK.signup[i18]*100).toFixed(2)+'%',wow(WK.total[i18]/WK.signup[i18],WK.total[i17]/WK.signup[i17]));
+
+// ── 월간 데이터 ──
+const MO = {
+  lb:['23-05','23-06','23-07','23-08','23-09','23-10','23-11','23-12','24-01','24-02','24-03','24-04','24-05','24-06','24-07','24-08','24-09','24-10','24-11','24-12','25-01','25-02','25-03','25-04','25-05','25-06','25-07','25-08','25-09','25-10','25-11','25-12','26-01','26-02','26-03','26-04','26-05'],
+  signup:[3929,3444,3913,4364,4252,4825,5260,5563,6425,5865,6079,5972,5020,7395,6412,23367,5527,6095,6112,6295,7201,8323,9305,9793,10309,9949,10414,11661,10321,7866,7814,8439,10035,8870,12499,11160,2163],
+  total: [45,56,79,80,92,87,111,101,122,130,145,151,151,181,193,223,233,232,291,300,311,300,341,389,570,569,618,683,706,677,783,796,844,819,840,921,145],
+  rev:   [1314100,1534500,2186600,2261000,2328400,1796100,2108580,1675880,3083870,2110016,2523342,3294310,2583034,3894168,4113500,4565496,4174024,4238071,5230588,6456781,7852793,8216799,9856269,11081800,18542280,17201181,20801700,23509888,21019200,18509993,23857387,22822870,32139189,25290695,29952796,32044097,5412494],
+  new_c: [45,45,64,57,64,50,70,53,76,71,76,77,56,66,73,97,85,83,120,128,118,115,146,174,289,247,262,279,291,225,268,247,310,266,239,280,44],
+  ren_c: [0,11,15,23,28,37,41,48,46,59,69,74,95,115,120,126,148,149,171,172,193,185,195,215,281,322,356,404,415,452,515,549,534,553,601,641,101],
+  pm_c:  [13,17,23,26,38,44,52,54,60,74,81,93,91,101,105,124,140,145,169,150,139,129,132,152,172,181,213,227,255,275,300,280,311,316,292,298,37],
+  py_c:  [25,25,43,43,38,32,46,34,45,44,46,40,41,59,65,75,62,58,93,96,90,75,105,113,154,151,141,160,144,117,166,173,187,153,134,155,36],
+  bm_c:  [1,7,7,6,6,7,7,7,5,6,8,8,8,7,10,12,20,16,21,32,50,58,56,76,82,94,105,118,129,131,147,143,146,145,203,234,36],
+  by_c:  [3,3,5,4,4,2,1,1,8,2,4,8,5,8,7,6,5,9,5,18,28,34,43,44,54,48,67,77,70,65,66,80,102,92,105,142,24],
+  cancel_c:[0,1,2,4,5,4,7,5,8,7,9,11,9,12,15,18,17,16,22,25,28,31,33,44,81,90,94,85,116,101,136,121,146,119,142,176,32],
+  cancel_r:[0,14975,77774,109068,142750,88500,265882,166000,338714,337499,346524,549012,411694,553960,619178,722196,680000,731046,1196826,1271720,1869308,2005832,2413440,3131830,2366426,2112998,2417974,3689581,2548327,1896228,4698898,3286616,7654072,3847435,5522018,4211811,509039],
+};
+MO.mon_c=MO.pm_c.map((_,i)=>MO.pm_c[i]+MO.bm_c[i]);
+MO.yr_c =MO.py_c.map((_,i)=>MO.py_c[i]+MO.by_c[i]);
+MO.pro_c=MO.pm_c.map((_,i)=>MO.pm_c[i]+MO.py_c[i]);
+MO.biz_c=MO.bm_c.map((_,i)=>MO.bm_c[i]+MO.by_c[i]);
+MO.pro_r=MO.pm_c.map((_,i)=>MO.pm_c[i]*4900+MO.py_c[i]*29400);
+MO.biz_r=MO.bm_c.map((_,i)=>MO.bm_c[i]*18900+MO.by_c[i]*113400);
+MO.mon_r=MO.pm_c.map((_,i)=>MO.pm_c[i]*4900+MO.bm_c[i]*18900);
+MO.yr_r =MO.py_c.map((_,i)=>MO.py_c[i]*29400+MO.by_c[i]*113400);
+MO.net_r=MO.rev.map((_,i)=>MO.rev[i]-MO.cancel_r[i]);
+
+// 월간 KPI
+const m4=MO.lb.indexOf('26-04'), m3=MO.lb.indexOf('26-03');
+document.getElementById('m-kpi').innerHTML=
+  kpi('신규 회원가입',MO.signup[m4].toLocaleString()+'명',wow(MO.signup[m4],MO.signup[m3]))+
+  kpi('전체 전환',MO.total[m4]+'건',wow(MO.total[m4],MO.total[m3]))+
+  kpi('총 매출',fmtM(MO.rev[m4])+'만원',wow(MO.rev[m4],MO.rev[m3]))+
+  kpi('순 매출',fmtM(MO.net_r[m4])+'만원',wow(MO.net_r[m4],MO.net_r[m3]))+
+  kpi('신규 결제',MO.new_c[m4]+'건',wow(MO.new_c[m4],MO.new_c[m3]))+
+  kpi('갱신 결제',MO.ren_c[m4]+'건',wow(MO.ren_c[m4],MO.ren_c[m3]))+
+  kpi('취소',MO.cancel_c[m4]+'건',wow(MO.cancel_c[m4],MO.cancel_c[m3]))+
+  kpi('전환율',(MO.total[m4]/MO.signup[m4]*100).toFixed(2)+'%',wow(MO.total[m4]/MO.signup[m4],MO.total[m3]/MO.signup[m3]));
+
+// ── MRR 데이터 ──
+const MRR = {
+  lb:['23-05','23-06','23-07','23-08','23-09','23-10','23-11','23-12','24-01','24-02','24-03','24-04','24-05','24-06','24-07','24-08','24-09','24-10','24-11','24-12','25-01','25-02','25-03','25-04','25-05','25-06','25-07','25-08','25-09','25-10','25-11','25-12','26-01','26-02','26-03','26-04'],
+  total:  [234630,509580,731000,953340,1335910,1504040,1744435,1925745,2158385,2461492,2716222,2966254,3085024,3516115,3684287,4000535,4261661,4482344,4952384,5345682,5948742,6606212,7120068,8323004,9584990,10425942,11707390,13064922,14193042,15034182,15922386,16529394,17535398,18566778,20186161,21420963],
+  pro:    [159930,284130,448850,638340,920240,1047000,1238345,1402355,1629445,1840883,2014314,2176390,2271910,2475886,2696108,2869605,3066954,3229141,3550280,3539868,3607927,3551248,3705505,3966766,4359616,4630216,4873226,5175509,5446979,5633293,5830451,5903430,6161981,6405910,6303643,6290295],
+  biz:    [74700,225450,282150,315000,415670,457040,506090,523390,528940,620609,701908,789864,813114,1040229,988179,1130930,1194707,1253203,1402104,1805814,2340814,3054964,3414564,4356238,5225374,5795726,6834164,7889414,8746064,9400888,10091934,10625965,11373417,12160868,13882518,15130668],
+  month_r:[89500,229700,268600,264400,382800,418100,494900,521190,512570,617040,665838,709170,735040,823940,898370,1075968,1237964,1272737,1530368,1652999,1907399,2092798,1985999,2431700,2804186,3000088,3490400,3932200,4240600,4429199,4598793,4515293,4568096,4909995,5897496,6510798],
+  year_r: [127850,243000,421600,640300,843750,969300,1121135,1272475,1501975,1671173,1863745,2094765,2187664,2491384,2579366,2715055,2836185,3003055,3219384,3534043,3890542,4378294,5002870,5760104,6649604,7294654,8097550,9022962,9842682,10495222,11219592,11929142,12882342,13575742,14217065,14848005],
+  active: [49,96,156,220,290,337,401,457,512,588,661,716,748,812,843,903,964,1016,1111,1178,1266,1337,1455,1623,1849,1999,2175,2374,2546,2672,2808,2919,3072,3220,3301,3398],
+};
+MRR.arpu = MRR.total.map((v,i)=>MRR.active[i]>0?Math.round(v/MRR.active[i]):0);
+
+// ── 차트 인스턴스 관리 ──
+let ch={wC:null,wD1:null,wD2:null,mC:null,mD1:null,mD2:null,mrrC:null};
+function kill(...ids){ids.forEach(id=>{if(ch[id]){ch[id].destroy();ch[id]=null;}});}
+function mk(id,labels,ds,yF,begin){
+  ch[id]=new Chart(document.getElementById(id),{type:'line',data:{labels,datasets:ds},options:chartOpts(yF,begin)});
+}
+
+// ── 주간 탭 ──
+const wCfg={
+  signup:{s:1,title:'주간 신규 회원가입',leg:leg(C1,'신규가입(명)'),ds:[mkFill('신규가입',WK.signup,C1)],yF:v=>v.toLocaleString()},
+  total: {s:1,title:'주간 전체 전환',   leg:leg(C2,'전체전환(건)'),ds:[mkFill('전체전환',WK.total,C2)],yF:v=>v+'건'},
+  revenue:{s:1,title:'주간 총 매출 & 순 매출',leg:leg(C3,'총매출')+leg('#1a7a52','순매출(취소차감)'),
+    ds:[mkFill('총매출',WK.rev,C3),mkLine('순매출',WK.net_r,'#1a7a52',[4,3])],yF:v=>fmtW(v)},
+  newrenew:{s:0,t1:'신규/갱신 — 건수',l1:leg(C1,'신규')+leg(C2,'갱신'),
+    d1:[mkLine('신규',WK.new_c,C1),mkLine('갱신',WK.ren_c,C2,[5,4])],y1:v=>v+'건',
+    t2:'신규/갱신 — 매출',l2:leg(C1,'신규매출')+leg(C2,'갱신매출'),
+    d2:[mkLine('신규매출',WK.new_r,C1),mkLine('갱신매출',WK.ren_r,C2,[5,4])],y2:v=>fmtW(v),note:'신규/갱신 매출은 주간매출 시트 기준'},
+  paytype:{s:0,t1:'월결제/연결제 — 건수',l1:leg(C1,'월결제')+leg(C2,'연결제'),
+    d1:[mkLine('월결제',WK.mon_c,C1),mkLine('연결제',WK.yr_c,C2,[5,4])],y1:v=>v+'건',
+    t2:'월결제/연결제 — 매출',l2:leg(C1,'월결제')+leg(C2,'연결제'),
+    d2:[mkLine('월결제',WK.mon_r,C1),mkLine('연결제',WK.yr_r,C2,[5,4])],y2:v=>fmtW(v),note:'실제 결제금액 기준'},
+  plan:{s:0,t1:'프로/브랜드 — 건수',l1:leg(C3,'프로')+leg(C4,'브랜드'),
+    d1:[mkLine('프로',WK.pro_c,C3),mkLine('브랜드',WK.biz_c,C4,[5,4])],y1:v=>v+'건',
+    t2:'프로/브랜드 — 매출',l2:leg(C3,'프로')+leg(C4,'브랜드'),
+    d2:[mkLine('프로',WK.pro_r,C3),mkLine('브랜드',WK.biz_r,C4,[5,4])],y2:v=>fmtW(v),note:'실제 결제금액 기준'},
+  cancel:{s:0,t1:'취소 건수',l1:leg(C5,'취소건수'),
+    d1:[mkFill('취소건수',WK.cancel_c,C5)],y1:v=>v+'건',
+    t2:'취소 금액',l2:leg(C5,'취소금액'),
+    d2:[mkFill('취소금액',WK.cancel_r,C5)],y2:v=>fmtW(v),note:'취소일 기준 집계 · 부분환불 포함'},
+};
+
+// ── 월간 탭 ──
+const mCfg={
+  signup:{s:1,title:'월별 신규 회원가입',leg:leg(C1,'신규가입(명)'),ds:[mkFill('신규가입',MO.signup,C1)],yF:v=>v.toLocaleString()},
+  total: {s:1,title:'월별 전체 전환',   leg:leg(C2,'전체전환(건)'),ds:[mkFill('전체전환',MO.total,C2)],yF:v=>v+'건'},
+  revenue:{s:1,title:'월별 총 매출 & 순 매출',leg:leg(C3,'총매출')+leg('#1a7a52','순매출(취소차감)'),
+    ds:[mkFill('총매출',MO.rev,C3),mkLine('순매출',MO.net_r,'#1a7a52',[4,3])],yF:v=>fmtM(v)},
+  newrenew:{s:0,t1:'신규/갱신 — 건수',l1:leg(C1,'신규')+leg(C2,'갱신'),
+    d1:[mkLine('신규',MO.new_c,C1),mkLine('갱신',MO.ren_c,C2,[5,4])],y1:v=>v+'건',
+    t2:'신규/갱신 — 매출',l2:leg(C3,'신규매출')+leg(C2,'갱신매출'),
+    d2:[mkLine('신규',MO.new_c.map(v=>v*9000),C3),mkLine('갱신',MO.ren_c.map(v=>v*50000),C2,[5,4])],y2:v=>fmtM(v),note:'단가 가중평균 기준'},
+  paytype:{s:0,t1:'월결제/연결제 — 건수',l1:leg(C1,'월결제')+leg(C2,'연결제'),
+    d1:[mkLine('월결제',MO.mon_c,C1),mkLine('연결제',MO.yr_c,C2,[5,4])],y1:v=>v+'건',
+    t2:'월결제/연결제 — 매출',l2:leg(C1,'월결제')+leg(C2,'연결제'),
+    d2:[mkLine('월결제',MO.mon_r,C1),mkLine('연결제',MO.yr_r,C2,[5,4])],y2:v=>fmtM(v),note:'단가 기준'},
+  plan:{s:0,t1:'프로/브랜드 — 건수',l1:leg(C3,'프로')+leg(C4,'브랜드'),
+    d1:[mkLine('프로',MO.pro_c,C3),mkLine('브랜드',MO.biz_c,C4,[5,4])],y1:v=>v+'건',
+    t2:'프로/브랜드 — 매출',l2:leg(C3,'프로')+leg(C4,'브랜드'),
+    d2:[mkLine('프로',MO.pro_r,C3),mkLine('브랜드',MO.biz_r,C4,[5,4])],y2:v=>fmtM(v),note:'단가 기준'},
+  cancel:{s:0,t1:'취소 건수',l1:leg(C5,'취소건수'),
+    d1:[mkFill('취소건수',MO.cancel_c,C5)],y1:v=>v+'건',
+    t2:'취소 금액',l2:leg(C5,'취소금액'),
+    d2:[mkFill('취소금액',MO.cancel_r,C5)],y2:v=>fmtM(v),note:'취소일 기준 집계 · 부분환불 포함'},
+};
+
+// ── MRR 탭 ──
+const mrrCfg={
+  total:  {title:'MRR 추이',leg:leg(C1,'전체 MRR'),ds:[mkFill('MRR',MRR.total,C1)],yF:v=>fmtM(v)},
+  plan:   {title:'프로 / 브랜드 MRR',leg:leg(C1,'Pro MRR')+leg(C2,'Brand MRR'),ds:[mkLine('Pro',MRR.pro,C1),mkLine('Brand',MRR.biz,C2,[5,4])],yF:v=>fmtM(v)},
+  paytype:{title:'월결제 / 연결제 MRR',leg:leg(C1,'월결제 MRR')+leg(C2,'연결제 MRR'),ds:[mkLine('월결제',MRR.month_r,C1),mkLine('연결제',MRR.year_r,C2,[5,4])],yF:v=>fmtM(v)},
+  active: {title:'활성 구독 수',leg:leg(C3,'활성 구독(건)'),ds:[mkFill('활성구독',MRR.active,C3)],yF:v=>v.toLocaleString()+'건'},
+  arpu:   {title:'ARPU (구독당 평균 MRR)',leg:leg(C4,'ARPU'),ds:[mkFill('ARPU',MRR.arpu,C4)],yF:v=>v.toLocaleString()+'원'},
+};
+
+function showW(k,b){
+  document.querySelectorAll('#w-tabs .t').forEach(t=>t.classList.remove('active')); if(b)b.classList.add('active');
+  const c=wCfg[k]; kill('wC','wD1','wD2');
+  if(c.s){
+    document.getElementById('w-single').style.display='block';
+    document.getElementById('w-double').style.display='none';
+    document.getElementById('wt').textContent=c.title; document.getElementById('wl').innerHTML=c.leg;
+    mk('wC',WK.lb,c.ds,c.yF);
+  } else {
+    document.getElementById('w-single').style.display='none';
+    document.getElementById('w-double').style.display='block';
+    document.getElementById('wd-t1').textContent=c.t1; document.getElementById('wd-l1').innerHTML=c.l1;
+    document.getElementById('wd-t2').textContent=c.t2; document.getElementById('wd-l2').innerHTML=c.l2;
+    document.getElementById('w-note').textContent=c.note;
+    mk('wD1',WK.lb,c.d1,c.y1); mk('wD2',WK.lb,c.d2,c.y2);
+  }
+}
+function showM(k,b){
+  document.querySelectorAll('#m-tabs .t').forEach(t=>t.classList.remove('active')); if(b)b.classList.add('active');
+  const c=mCfg[k]; kill('mC','mD1','mD2');
+  if(c.s){
+    document.getElementById('m-single').style.display='block';
+    document.getElementById('m-double').style.display='none';
+    document.getElementById('mt').textContent=c.title; document.getElementById('ml').innerHTML=c.leg;
+    mk('mC',MO.lb,c.ds,c.yF);
+  } else {
+    document.getElementById('m-single').style.display='none';
+    document.getElementById('m-double').style.display='block';
+    document.getElementById('md-t1').textContent=c.t1; document.getElementById('md-l1').innerHTML=c.l1;
+    document.getElementById('md-t2').textContent=c.t2; document.getElementById('md-l2').innerHTML=c.l2;
+    document.getElementById('m-note').textContent=c.note;
+    mk('mD1',MO.lb,c.d1,c.y1); mk('mD2',MO.lb,c.d2,c.y2);
+  }
+}
+function showMRR(k,b){
+  document.querySelectorAll('#mrr-tabs .t').forEach(t=>t.classList.remove('active')); if(b)b.classList.add('active');
+  const c=mrrCfg[k]; kill('mrrC');
+  document.getElementById('mrr-t').textContent=c.title; document.getElementById('mrr-l').innerHTML=c.leg;
+  mk('mrrC',MRR.lb,c.ds,c.yF);
+}
+function switchV(v,b){
+  document.querySelectorAll('.vsb').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  document.getElementById('sw').className='sec'+(v==='w'?' show':'');
+  document.getElementById('sm').className='sec'+(v==='m'?' show':'');
+  document.getElementById('smrr').className='sec'+(v==='mrr'?' show':'');
+  if(v==='m'&&!ch.mC) setTimeout(()=>showM('signup',document.querySelector('#m-tabs .t')),30);
+  if(v==='mrr'&&!ch.mrrC) setTimeout(()=>showMRR('total',document.querySelector('#mrr-tabs .t')),30);
+}
+
+showW('signup',document.querySelector('#w-tabs .t.active'));
+</script>
+</body>
+</html>
