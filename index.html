@@ -143,8 +143,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
       <div class="period-label" id="w-period"></div>
       <div class="kg" id="w-kpi"></div>
       <div class="tb" id="w-tabs">
-        <button class="t active" onclick="showW('signup',this)">신규 회원가입</button>
-        <button class="t" onclick="showW('overview',this)">전체 전환 / 매출</button>
+        <button class="t active" onclick="showW('signup',this)">요약</button>
         <div class="tsep"></div>
         <button class="t detail" onclick="showW('newrenew',this)">신규 / 갱신</button>
         <button class="t detail" onclick="showW('paytype',this)">월결제 / 연결제</button>
@@ -155,8 +154,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
       <div id="w-single" class="card"><div class="ct" id="wt"></div><div id="wl" class="leg"></div><div style="position:relative;height:230px"><canvas id="wC"></canvas></div></div>
       <div id="w-overview" style="display:none">
         <div class="r2">
-          <div class="card" style="margin-bottom:0"><div class="ct">전체 전환 추이</div><div class="leg">leg(C2,'전체전환(건)')</div><div style="position:relative;height:200px"><canvas id="wOv1"></canvas></div></div>
-          <div class="card" style="margin-bottom:0"><div class="ct">전체 매출 추이</div><div class="leg">leg(C3,'총매출')</div><div style="position:relative;height:200px"><canvas id="wOv2"></canvas></div></div>
+          <div class="card" style="margin-bottom:0;border-top:2px solid var(--blue)"><div class="ct">전체 전환 추이</div><div style="position:relative;height:180px"><canvas id="wOv1"></canvas></div></div>
+          <div class="card" style="margin-bottom:0;border-top:2px solid var(--green)"><div class="ct">전체 매출 추이</div><div style="position:relative;height:180px"><canvas id="wOv2"></canvas></div></div>
         </div>
       </div>
       <div id="w-double" style="display:none">
@@ -177,8 +176,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
       <div class="period-label" id="m-period"></div>
       <div class="kg" id="m-kpi"></div>
       <div class="tb" id="m-tabs">
-        <button class="t active" onclick="showM('signup',this)">신규 회원가입</button>
-        <button class="t" onclick="showM('overview',this)">전체 전환 / 매출</button>
+        <button class="t active" onclick="showM('signup',this)">요약</button>
         <div class="tsep"></div>
         <button class="t detail" onclick="showM('newrenew',this)">신규 / 갱신</button>
         <button class="t detail" onclick="showM('paytype',this)">월결제 / 연결제</button>
@@ -189,8 +187,8 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
       <div id="m-single" class="card"><div class="ct" id="mt"></div><div id="ml" class="leg"></div><div style="position:relative;height:230px"><canvas id="mC"></canvas></div></div>
       <div id="m-overview" style="display:none">
         <div class="r2">
-          <div class="card" style="margin-bottom:0"><div class="ct">전체 전환 추이</div><div style="position:relative;height:200px"><canvas id="mOv1"></canvas></div></div>
-          <div class="card" style="margin-bottom:0"><div class="ct">전체 매출 추이</div><div style="position:relative;height:200px"><canvas id="mOv2"></canvas></div></div>
+          <div class="card" style="margin-bottom:0;border-top:2px solid var(--blue)"><div class="ct">전체 전환 추이</div><div style="position:relative;height:180px"><canvas id="mOv1"></canvas></div></div>
+          <div class="card" style="margin-bottom:0;border-top:2px solid var(--green)"><div class="ct">전체 매출 추이</div><div style="position:relative;height:180px"><canvas id="mOv2"></canvas></div></div>
         </div>
       </div>
       <div id="m-double" style="display:none">
@@ -451,12 +449,12 @@ function showW(k,b){
   single.style.display='none';overview.style.display='none';dbl.style.display='none';pw.style.display='none';
 
   if(k==='signup'){
+    // 신규가입 단일 + 전환/매출 overview 함께 표시
     single.style.display='block';
+    overview.style.display='block';
     document.getElementById('wt').textContent='주간 신규 회원가입';
     document.getElementById('wl').innerHTML=leg(C1,'신규가입(명)');
     mk('wC',lb,sDs([mkF('',WK.signup,C1)],slW),v=>v.toLocaleString());
-  } else if(k==='overview'){
-    overview.style.display='block';
     mk('wOv1',lb,sDs([mkF('',WK.total,C2)],slW),v=>v+'건');
     mk('wOv2',lb,sDs([mkF('총매출',WK.rev,C3),mkL('순매출',WK.net_r,'#0a5c3a',[4,3])],slW),v=>fmtM(v));
   } else {
@@ -488,11 +486,10 @@ function showM(k,b){
 
   if(k==='signup'){
     single.style.display='block';
+    overview.style.display='block';
     document.getElementById('mt').textContent='월별 신규 회원가입';
     document.getElementById('ml').innerHTML=leg(C1,'신규가입(명)');
     mk('mC',lb,sDs([mkF('',MO.signup,C1)],slM),v=>v.toLocaleString());
-  } else if(k==='overview'){
-    overview.style.display='block';
     mk('mOv1',lb,sDs([mkF('',MO.total,C2)],slM),v=>v+'건');
     mk('mOv2',lb,sDs([mkF('총매출',MO.rev,C3),mkL('순매출',MO.net_r,'#0a5c3a',[4,3])],slM),v=>fmtM(v));
   } else {
