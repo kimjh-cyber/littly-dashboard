@@ -1603,20 +1603,18 @@ function showLTV(k, b) {
 
   } else if(k==='survival'){
     if(single) single.style.display='block';
-    document.getElementById('ltv-t').textContent='플랜별 · 결제방식별 리텐션 (첫 결제 후 생존율)';
-    document.getElementById('ltv-l').innerHTML=(LTV.survivalMonths||[]).map((m,i)=>{
-      const colors=[C1,C2,C3,C4,C5,'#888'];
-      return leg(colors[i]||'#888',m+'개월 후');
-    }).join('');
+    document.getElementById('ltv-t').textContent='리텐션 — Pro / Brand 비교 (첫 결제 후 생존율)';
+    document.getElementById('ltv-l').innerHTML=leg(C3,'전체')+leg(C1,'Pro')+leg(C2,'Brand');
     mkLTV('ltvC','line',{
-      labels:LTV.survivalLabels||[],
-      datasets:(LTV.survivalMonths||[]).map((m,i)=>{
-        const colors=[C1,C2,C3,C4,C5,'#888'];
-        return{label:m+'개월',data:LTV.survivalData?.[i]||[],borderColor:colors[i],backgroundColor:'transparent',tension:0.3,pointRadius:3,borderWidth:2,spanGaps:false};
-      })
-    },v=>v+'%');
+      labels: LTV.retentionLabels||[],
+      datasets:[
+        {label:'전체', data:LTV.retentionAll||[], borderColor:C3, backgroundColor:C3+'15', fill:true, tension:0.3, pointRadius:7, pointHoverRadius:9, borderWidth:2.5, spanGaps:false},
+        {label:'Pro',  data:LTV.retentionPro||[], borderColor:C1, backgroundColor:'transparent', fill:false, tension:0.3, pointRadius:7, pointHoverRadius:9, borderWidth:2.5, spanGaps:false},
+        {label:'Brand',data:LTV.retentionBiz||[], borderColor:C2, backgroundColor:'transparent', fill:false, tension:0.3, pointRadius:7, pointHoverRadius:9, borderWidth:2.5, borderDash:[6,4], spanGaps:false},
+      ]
+    },v=>v!=null?v+'%':'');
 
-  } else if(k==='churn'){
+    } else if(k==='churn'){
     if(churnD) churnD.style.display='block';
     const cl1=document.getElementById('ltv-churn-l1');
     const cl2=document.getElementById('ltv-churn-l2');
