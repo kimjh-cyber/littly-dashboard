@@ -262,6 +262,10 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
       <button class="t" onclick="showLTV('cohort',this)">코호트별 LTV</button>
       <button class="t" onclick="showLTV('dist',this)">결제 횟수 분포</button>
       <button class="t" onclick="showLTV('cumul',this)">누적 LTV 추이</button>
+      <div class="tsep"></div>
+      <button class="t detail" onclick="showLTV('churn_time',this)">이탈까지 기간</button>
+      <button class="t detail" onclick="showLTV('churn_cnt',this)">이탈 전 결제횟수</button>
+      <button class="t detail" onclick="showLTV('survival',this)">코호트 생존율</button>
     </div>
     <div class="card">
       <div class="ct" id="ltv-t"></div>
@@ -322,7 +326,7 @@ function process(upgrades,payments,members){
   joined.sort((a,b)=>a.생성일-b.생성일);
   const firstSeen={};
   joined.forEach(p=>{const wk=getWk(p.생성일);if(!firstSeen[p.memberId])firstSeen[p.memberId]=wk;p.is_new=firstSeen[p.memberId]===wk;});
-  window._ltvRaw=joined.map(p=>({memberId:p.memberId,금액:p.금액,생성일:p.생성일,_plan:p.플랜}));
+  window._ltvRaw=joined.map(p=>({memberId:p.memberId,금액:p.금액,생성일:p.생성일,_plan:p.플랜,cancelDate:p.취소일||null}));
 
   const cancelRows=joined.filter(p=>p.취소일).map(p=>({...p,cancelDate:toD(p.취소일)}));
   const memberRows=members.map(m=>({date:toD(m.가입일||m['가입일'])})).filter(m=>m.date);
@@ -1127,6 +1131,124 @@ function initLTV() {
   LTV.cumulLabels = LTV.cohortLabels;
   LTV.cumulData   = LTV.cohortAvg;
 
+  // ── 이탈 분석 ──
+  const canceledMembers = members.filter(m => {
+    // 취소일이 있는 결제가 하나라도 있으면 이탈자
+    const raw = window._ltvRaw || [];
+    return raw.some(p => p.memberId === m.mid && p.cancelDate);
+  });
+
+  // 취소한 멤버 재집계 (cancelDate 포함)
+  const cancelMap = {};
+  (window._ltvRaw||[]).forEach(p => {
+    if(!p.cancelDate) return;
+    if(!cancelMap[p.memberId]) cancelMap[p.memberId] = {firstPay:p.생성일, cancelDate:p.cancelDate, plan:p._plan, payCnt:0};
+    if(p.생성일 < cancelMap[p.memberId].firstPay) cancelMap[p.memberId].firstPay = p.생성일;
+    if(p.cancelDate > (cancelMap[p.memberId].cancelDate||'')) cancelMap[p.memberId].cancelDate = p.cancelDate;
+  });
+  // 결제 횟수도 추가
+  (window._ltvRaw||[]).forEach(p => {
+    if(cancelMap[p.memberId]) cancelMap[p.memberId].payCnt = (cancelMap[p.memberId].payCnt||0) + 1;
+  });
+
+  const canceledList = Object.values(cancelMap);
+
+  // 이탈까지 기간 (개월)
+  const churnMonths = canceledList.map(m => {
+    if(!m.firstPay || !m.cancelDate) return null;
+    const d1 = new Date(m.firstPay), d2 = new Date(m.cancelDate);
+    return Math.max(0, Math.round((d2-d1)/(1000*60*60*24*30)));
+  }).filter(v=>v!==null);
+
+  // 이탈까지 기간 분포 (0~1개월, 1~3개월, 3~6개월, 6~12개월, 12개월+)
+  const timeBuckets = ['1개월 미만','1~3개월','3~6개월','6~12개월','12개월+'];
+  const timeData = [0,0,0,0,0];
+  const timeProData = [0,0,0,0,0];
+  const timeBizData = [0,0,0,0,0];
+  canceledList.forEach((m,i) => {
+    const mo = churnMonths[i];
+    if(mo === undefined || mo === null) return;
+    let bucket = mo < 1 ? 0 : mo < 3 ? 1 : mo < 6 ? 2 : mo < 12 ? 3 : 4;
+    timeData[bucket]++;
+    if(m.plan==='pro') timeProData[bucket]++;
+    else if(m.plan==='business') timeBizData[bucket]++;
+  });
+  LTV.churnTimeBuckets = timeBuckets;
+  LTV.churnTimeData = timeData;
+  LTV.churnTimeProData = timeProData;
+  LTV.churnTimeBizData = timeBizData;
+  LTV.avgChurnMonths = churnMonths.length > 0 ? (churnMonths.reduce((a,b)=>a+b,0)/churnMonths.length).toFixed(1) : 0;
+
+  // 이탈 전 결제 횟수 분포
+  const churnCntBuckets = ['1회','2회','3회','4회','5회','6~10회','10회+'];
+  const churnCntData = [0,0,0,0,0,0,0];
+  const churnCntProData = [0,0,0,0,0,0,0];
+  const churnCntBizData = [0,0,0,0,0,0,0];
+  canceledList.forEach(m => {
+    const cnt = m.payCnt || 0;
+    let b = cnt <= 1 ? 0 : cnt===2 ? 1 : cnt===3 ? 2 : cnt===4 ? 3 : cnt===5 ? 4 : cnt<=10 ? 5 : 6;
+    churnCntData[b]++;
+    if(m.plan==='pro') churnCntProData[b]++;
+    else if(m.plan==='business') churnCntBizData[b]++;
+  });
+  LTV.churnCntBuckets = churnCntBuckets;
+  LTV.churnCntData = churnCntData;
+  LTV.churnCntProData = churnCntProData;
+  LTV.churnCntBizData = churnCntBizData;
+  LTV.totalCanceled = canceledList.length;
+
+  // 코호트 생존율 (첫 결제월 기준)
+  // 각 코호트가 N개월 후 몇 %가 아직 취소 안 했는지
+  const survivalCohortMap = {};
+  (window._ltvRaw||[]).forEach(p => {
+    if(!p.memberId || !p.생성일) return;
+    const mid = p.memberId;
+    if(!survivalCohortMap[mid]) {
+      const d = new Date(p.생성일);
+      survivalCohortMap[mid] = {
+        cohort: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,
+        firstPay: p.생성일,
+        canceled: false,
+        cancelDate: null,
+        plan: p._plan
+      };
+    }
+    if(p.cancelDate) {
+      survivalCohortMap[mid].canceled = true;
+      survivalCohortMap[mid].cancelDate = p.cancelDate;
+    }
+  });
+
+  // 생존율 계산 (월별 코호트 × N개월 후 생존율)
+  const survivalCohorts = {};
+  Object.values(survivalCohortMap).forEach(m => {
+    if(!survivalCohorts[m.cohort]) survivalCohorts[m.cohort] = {total:0, members:[]};
+    survivalCohorts[m.cohort].total++;
+    survivalCohorts[m.cohort].members.push(m);
+  });
+
+  const survivalMonths = [1,3,6,12,18,24];
+  const now = new Date();
+  const recentCohorts = Object.keys(survivalCohorts).sort().slice(-18);
+
+  LTV.survivalLabels = recentCohorts.map(k=>k.slice(2));
+  LTV.survivalData = survivalMonths.map(nMonth => {
+    return recentCohorts.map(cohort => {
+      const cohortData = survivalCohorts[cohort];
+      if(!cohortData) return null;
+      const cohortDate = new Date(cohort+'-01');
+      const checkDate = new Date(cohortDate);
+      checkDate.setMonth(checkDate.getMonth() + nMonth);
+      if(checkDate > now) return null; // 아직 그 시점 안 됨
+      const survived = cohortData.members.filter(m => {
+        if(!m.canceled) return true; // 아직 취소 안 함
+        return new Date(m.cancelDate) > checkDate; // 그 시점 이후 취소
+      }).length;
+      return Math.round(survived / cohortData.total * 100);
+    });
+  });
+  LTV.survivalMonths = survivalMonths;
+
   // 히어로 카드
   document.getElementById('ltv-hero').innerHTML = `
     <div>
@@ -1211,6 +1333,55 @@ function showLTV(k, b) {
   if(ch.ltvC){ch.ltvC.destroy();ch.ltvC=null;}
 
   const cfgs = {
+    churn_time: {
+      title:'첫 결제 후 이탈까지 기간 분포',
+      leg: leg(C1,'Pro')+leg(C2,'Brand'),
+      type:'bar',
+      data:{
+        labels: LTV.churnTimeBuckets||[],
+        datasets:[
+          {label:'Pro', data:LTV.churnTimeProData||[], backgroundColor:C1+'cc', borderRadius:4, borderWidth:0, stack:'s'},
+          {label:'Brand', data:LTV.churnTimeBizData||[], backgroundColor:C2+'cc', borderRadius:4, borderWidth:0, stack:'s'},
+        ]
+      },
+      yF: v=>v.toLocaleString()+'명'
+    },
+    churn_cnt: {
+      title:'이탈 전 결제 횟수 분포 (취소 멤버 기준)',
+      leg: leg(C1,'Pro')+leg(C2,'Brand'),
+      type:'bar',
+      data:{
+        labels: LTV.churnCntBuckets||[],
+        datasets:[
+          {label:'Pro', data:LTV.churnCntProData||[], backgroundColor:C1+'cc', borderRadius:4, borderWidth:0, stack:'s'},
+          {label:'Brand', data:LTV.churnCntBizData||[], backgroundColor:C2+'cc', borderRadius:4, borderWidth:0, stack:'s'},
+        ]
+      },
+      yF: v=>v.toLocaleString()+'명'
+    },
+    survival: {
+      title:'코호트별 생존율 (첫 결제월 기준)',
+      leg: (LTV.survivalMonths||[]).map((m,i)=>{
+        const colors=['#378ADD','#7F77DD','#0b9e63','#d4890a','#e03e3e','#555'];
+        return leg(colors[i]||'#888', m+'개월 후');
+      }).join(''),
+      type:'line',
+      data:{
+        labels: LTV.survivalLabels||[],
+        datasets: (LTV.survivalMonths||[]).map((m,i)=>{
+          const colors=['#378ADD','#7F77DD','#0b9e63','#d4890a','#e03e3e','#555'];
+          return {
+            label: m+'개월 후',
+            data: LTV.survivalData?.[i]||[],
+            borderColor: colors[i]||'#888',
+            backgroundColor:'transparent',
+            tension:0.3, pointRadius:3, borderWidth:2,
+            spanGaps:false
+          };
+        })
+      },
+      yF: v=>v+'%'
+    },
     plan: {
       title:'플랜별 평균 LTV',
       leg: leg(C1,'Pro')+leg(C2,'Brand')+leg(C3,'전체 평균'),
@@ -1219,23 +1390,23 @@ function showLTV(k, b) {
         labels:['Pro','Brand'],
         datasets:[
           {
-            type:'line',
-            label:'전체 평균',
-            data:[LTV.avgAll||0, LTV.avgAll||0],
-            borderColor:C3,
-            borderWidth:2,
-            borderDash:[6,4],
-            pointRadius:0,
-            fill:false,
-            order:2,
-            yAxisID:'y'
-          },
-          {
             type:'bar',
             label:'플랜별 LTV',
             data:[LTV.avgPro||0, LTV.avgBiz||0],
             backgroundColor:[C1,C2],
             borderRadius:6, borderWidth:0,
+            order:2,
+            yAxisID:'y'
+          },
+          {
+            type:'line',
+            label:'전체 평균',
+            data:[LTV.avgAll||0, LTV.avgAll||0],
+            borderColor:'#e03e3e',
+            borderWidth:2,
+            borderDash:[8,4],
+            pointRadius:0,
+            fill:false,
             order:1,
             yAxisID:'y'
           }
