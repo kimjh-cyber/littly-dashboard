@@ -1570,9 +1570,11 @@ function mkLTV(id,type,data,yF){
 function killLTV(){
   ['ltvC','ltvC1','ltvC2','ltvChurn1','ltvChurn2'].forEach(id=>{if(ch[id]){ch[id].destroy();ch[id]=null;}});
 }
-function mkLTV(id,type,data,yF){
+function mkLTV(id,type,data,yF,extraOpts){
   const el=document.getElementById(id); if(!el) return null;
-  return ch[id]=new Chart(el,{type,data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:GR},ticks:{color:TR,font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:15}},y:{beginAtZero:true,grid:{color:GR},ticks:{color:TR,font:{size:10},callback:yF}}}}});
+  const defaultOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:GR},ticks:{color:TR,font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:15}},y:{beginAtZero:true,grid:{color:GR},ticks:{color:TR,font:{size:10},callback:yF}}}};
+  const opts = extraOpts ? {...defaultOpts,...extraOpts} : defaultOpts;
+  return ch[id]=new Chart(el,{type,data,options:opts});
 }
 
 function showLTV(k, b) {
@@ -1626,11 +1628,14 @@ function showLTV(k, b) {
     mkLTV('ltvC','line',{
       labels: LTV.retentionLabels||[],
       datasets:[
-        {label:'전체', data:LTV.retentionAll||[], borderColor:C3, backgroundColor:C3+'15', fill:true, tension:0.3, pointRadius:7, pointHoverRadius:9, borderWidth:2.5, spanGaps:false},
-        {label:'Pro',  data:LTV.retentionPro||[], borderColor:C1, backgroundColor:'transparent', fill:false, tension:0.3, pointRadius:7, pointHoverRadius:9, borderWidth:2.5, spanGaps:false},
-        {label:'Brand',data:LTV.retentionBiz||[], borderColor:C2, backgroundColor:'transparent', fill:false, tension:0.3, pointRadius:7, pointHoverRadius:9, borderWidth:2.5, borderDash:[6,4], spanGaps:false},
+        {label:'전체', data:LTV.retentionAll||[], borderColor:C3, backgroundColor:C3+'15', fill:true, tension:0, pointRadius:5, pointHoverRadius:7, borderWidth:2, spanGaps:false},
+        {label:'Pro',  data:LTV.retentionPro||[], borderColor:C1, backgroundColor:'transparent', fill:false, tension:0, pointRadius:5, pointHoverRadius:7, borderWidth:2.5, spanGaps:false},
+        {label:'Brand',data:LTV.retentionBiz||[], borderColor:C2, backgroundColor:'transparent', fill:false, tension:0, pointRadius:5, pointHoverRadius:7, borderWidth:2.5, borderDash:[6,4], spanGaps:false},
       ]
-    },v=>v!=null?v+'%':'');
+    },v=>v!=null?v+'%':'',{scales:{
+      x:{grid:{color:GR},ticks:{color:TR,font:{size:11},maxRotation:0}},
+      y:{beginAtZero:false,min:40,max:100,grid:{color:GR},ticks:{color:TR,font:{size:11},callback:v=>v+'%',stepSize:10}}
+    }});
 
     } else if(k==='churn'){
     if(churnD) churnD.style.display='block';
