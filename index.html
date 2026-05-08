@@ -239,6 +239,12 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
       </div>
       <div class="card"><div class="ct" id="mrr-t"></div><div id="mrr-l" class="leg"></div><div style="position:relative;height:250px"><canvas id="mrrC"></canvas></div></div>
       <div style="font-size:10px;color:var(--text3)">* 종료일 기준 활성 구독 스냅샷 · 월결제 = 금액 그대로, 연결제 = 연간금액 ÷ 12</div>
+    <!-- MRR 예측 배너 -->
+    <div id="mrr-forecast-banner" style="display:none;background:linear-gradient(135deg,rgba(11,158,99,0.04),rgba(26,110,245,0.04));border:0.5px solid rgba(11,158,99,0.2);border-radius:12px;padding:14px 18px;margin-top:12px">
+      <div style="font-size:11px;font-weight:600;color:var(--green);margin-bottom:10px">📈 향후 3개월 MRR 예측 <span style="font-weight:400;color:var(--text3);font-size:10px">(구성요소 기반)</span></div>
+      <div id="mrr-forecast-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:8px"></div>
+      <div style="font-size:10px;color:var(--text3)">* 최근 3개월 신규 MRR 트렌드 + 평균 이탈율 적용 · 실제와 다를 수 있음</div>
+    </div>
     </div>
   </div>
 
@@ -334,7 +340,7 @@ function mkF(l,d,c){return{label:l,data:d,borderColor:c,backgroundColor:c+'22',f
 
 let WK={},MO={},MRR={};
 let wR={s:0,e:0},mR={s:0,e:0};
-let ch={wC:null,wOv1:null,wOv2:null,wSum1:null,wSum2:null,wD1:null,wD2:null,mC:null,mOv1:null,mOv2:null,mSum1:null,mSum2:null,mD1:null,mD2:null,mrrC:null,ltvC:null,ltvC1:null,ltvC2:null,ltvChurn1:null,ltvChurn2:null};
+let ch={wC:null,wOv1:null,wOv2:null,wSum1:null,wSum2:null,wD1:null,wD2:null,mC:null,mOv1:null,mOv2:null,mSum1:null,mSum2:null,mD1:null,mD2:null,mrrC:null,mrrForecastC:null,ltvC:null,ltvC1:null,ltvC2:null,ltvChurn1:null,ltvChurn2:null};
 
 function isoWeek(d){const dt=new Date(d);dt.setHours(0,0,0,0);dt.setDate(dt.getDate()+4-(dt.getDay()||7));const y=new Date(dt.getFullYear(),0,1);return Math.ceil(((dt-y)/86400000+1)/7);}
 function getWk(d){return`${d.getFullYear()}_${isoWeek(d)}`;}
@@ -703,12 +709,71 @@ function showM(k,b){
     pm.style.display='block';renderPortion('m',k,mR.e,'m-pt','m-pg');
   }
 }
-function showMRR(k,b){
-  document.querySelectorAll('#mrr-tabs .t').forEach(t=>t.classList.remove('active'));if(b)b.classList.add('active');
-  kill('mrrC');const c=mrrCfg(k);
-  document.getElementById('mrr-t').textContent=c.title;document.getElementById('mrr-l').innerHTML=c.leg;
-  mk('mrrC',MRR.lb,c.ds,c.yF);
+function computeMRRForecast() {
+  const n = MRR.total.length;
+  if(n < 4) return null;
+  const recentGrowth = [], recentChurn = [];
+  for(let i=n-3; i<n; i++) {
+    const diff = MRR.total[i] - MRR.total[i-1];
+    recentGrowth.push(Math.max(0, diff));
+    recentChurn.push(Math.max(0, -diff));
+  }
+  const avgNew   = recentGrowth.reduce((a,b)=>a+b,0)/recentGrowth.length;
+  const avgChurn = recentChurn.reduce((a,b)=>a+b,0)/recentChurn.length;
+  const churnRate = MRR.total[n-1]>0 ? avgChurn/MRR.total[n-1] : 0;
+  const forecasts = [];
+  let cur = MRR.total[n-1];
+  const today = new Date();
+  for(let i=1; i<=3; i++) {
+    const next = Math.round(cur + avgNew - cur*churnRate);
+    const d = new Date(today.getFullYear(), today.getMonth()+i, 1);
+    const label = String(d.getFullYear()).slice(2)+'-'+String(d.getMonth()+1).padStart(2,'0');
+    forecasts.push({label, mrr:next, growth:next-cur, pct:((next-cur)/cur*100).toFixed(1)});
+    cur = next;
+  }
+  return {forecasts, avgNew:Math.round(avgNew), avgChurn:Math.round(avgChurn), churnRate:(churnRate*100).toFixed(2)};
 }
+
+function showMRR(k,b){
+  document.querySelectorAll('#mrr-tabs .t').forEach(t=>t.classList.remove('active')); if(b)b.classList.add('active');
+  kill('mrrC');
+  const banner = document.getElementById('mrr-forecast-banner');
+  const noteArea = document.getElementById('mrr-note-area');
+
+  if(k==='forecast'){
+    if(banner) banner.style.display='block';
+    const fc = computeMRRForecast();
+    if(fc){
+      document.getElementById('mrr-forecast-cards').innerHTML = fc.forecasts.map(f=>`
+        <div style="background:var(--bg3);border-radius:8px;padding:12px 14px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${f.label} 예측</div>
+          <div style="font-size:18px;font-weight:600;color:var(--text)">${Math.round(f.mrr/10000).toLocaleString()}만원</div>
+          <div style="font-size:11px;margin-top:3px;color:${f.growth>=0?'var(--green)':'var(--red)'}">${f.growth>=0?'▲':'▼'} ${Math.abs(Math.round(f.growth/10000)).toLocaleString()}만원 (${f.pct}%)</div>
+        </div>`).join('');
+      if(noteArea) noteArea.innerHTML=`<div style="font-size:10px;color:var(--text3);margin-top:6px">가정: 월평균 신규 MRR ${Math.round(fc.avgNew/10000).toLocaleString()}만원 / 월 이탈율 ${fc.churnRate}% / 최근 3개월 평균 기준</div>`;
+      // 실제 + 예측 차트
+      const allLb = [...MRR.lb, ...fc.forecasts.map(f=>f.label)];
+      const actData = [...MRR.total, null, null, null];
+      const fctData = MRR.total.map(()=>null);
+      fctData[fctData.length-1] = MRR.total[MRR.total.length-1];
+      fc.forecasts.forEach(f=>fctData.push(f.mrr));
+      document.getElementById('mrr-t').textContent='MRR 추이 + 3개월 예측';
+      document.getElementById('mrr-l').innerHTML=leg(C1,'실제 MRR')+leg(C3,'예측 MRR (점선)');
+      ch.mrrC=new Chart(document.getElementById('mrrC'),{type:'line',data:{labels:allLb,datasets:[
+        {label:'실제',data:actData,borderColor:C1,backgroundColor:C1+'22',fill:true,tension:0.35,pointRadius:3,borderWidth:2,spanGaps:false},
+        {label:'예측',data:fctData,borderColor:C3,backgroundColor:'transparent',fill:false,tension:0.35,pointRadius:5,borderWidth:2,borderDash:[7,4],spanGaps:false},
+      ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:GR},ticks:{color:TR,font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:15}},y:{beginAtZero:false,grid:{color:GR},ticks:{color:TR,font:{size:10},callback:v=>Math.round(v/10000).toLocaleString()+'만'}}}}});
+    }
+  } else {
+    if(banner) banner.style.display='none';
+    if(noteArea) noteArea.innerHTML='';
+    const c=mrrCfg(k);
+    document.getElementById('mrr-t').textContent=c.title;
+    document.getElementById('mrr-l').innerHTML=c.leg;
+    mk('mrrC',MRR.lb,c.ds,c.yF);
+  }
+}
+
 function switchV(v,b){
   document.querySelectorAll('.vsb').forEach(x=>x.classList.remove('active'));b.classList.add('active');
   document.getElementById('sw').className='sec'+(v==='w'?' show':'');
