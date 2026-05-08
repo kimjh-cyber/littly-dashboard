@@ -312,7 +312,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
         </div>
       </div>
     </div>
-    <div style="font-size:10px;color:var(--text3);margin-top:6px">* 취소 포함 전체 결제 금액 기준 (환불 미차감)</div>
+    <div style="font-size:10px;color:var(--text3);margin-top:6px">* 취소 포함 전체 결제 금액 기준 (환불 미차감) &nbsp;·&nbsp; 당일 취소 후 재결제 164건은 결제 수정으로 간주하여 이탈 분석에서 제외</div>
   </div>
 
 </div>
@@ -364,11 +364,39 @@ function process(upgrades,payments,members){
   }).filter(p=>p.생성일&&p.금액>0);
 
   joined.sort((a,b)=>a.생성일-b.생성일);
+
+  // ── 당일 취소 후 재결제 케이스 처리 ──
+  // 같은 멤버가 같은 날 취소하고 다른 유효한 결제를 한 경우는
+  // 실제 이탈이 아닌 "결제 수정(플랜 변경/결제방식 변경)"으로 간주하여
+  // 취소 집계 및 LTV 이탈 분석에서 제외.
+  // 단, 당일 취소 후 재결제 없는 케이스는 진짜 이탈이므로 그대로 유지.
+  // (2026-05 데이터 기준: 전체 취소 2,474건 중 164건이 당일 재결제 케이스)
+  const memberPaysByDate={};
+  joined.forEach(p=>{
+    const dk=p.생성일.toISOString().slice(0,10);
+    const key=p.memberId+'_'+dk;
+    if(!memberPaysByDate[key]) memberPaysByDate[key]=[];
+    memberPaysByDate[key].push(p);
+  });
+  const sameDayRepayKeys=new Set();
+  joined.forEach(p=>{
+    if(!p.취소일) return;
+    const cdk=new Date(p.취소일).toISOString().slice(0,10);
+    const pdk=p.생성일.toISOString().slice(0,10);
+    if(cdk!==pdk) return;
+    const key=p.memberId+'_'+cdk;
+    const sameDay=memberPaysByDate[key]||[];
+    const hasRepay=sameDay.some(o=>o.id!==p.id&&!o.취소일);
+    if(hasRepay) sameDayRepayKeys.add(p.id);
+  });
+
   const firstSeen={};
   joined.forEach(p=>{const wk=getWk(p.생성일);if(!firstSeen[p.memberId])firstSeen[p.memberId]=wk;p.is_new=firstSeen[p.memberId]===wk;});
-  window._ltvRaw=joined.map(p=>({memberId:p.memberId,금액:p.금액,생성일:p.생성일,_plan:p.플랜,cancelDate:p.취소일||null}));
+  // LTV용 전역 노출 (당일 재결제 취소 제외)
+  window._ltvRaw=joined.filter(p=>!sameDayRepayKeys.has(p.id)).map(p=>({memberId:p.memberId,금액:p.금액,생성일:p.생성일,_plan:p.플랜,cancelDate:p.취소일||null}));
 
-  const cancelRows=joined.filter(p=>p.취소일).map(p=>({...p,cancelDate:toD(p.취소일)}));
+  // 당일 재결제 취소 제외 후 실제 이탈만 집계
+  const cancelRows=joined.filter(p=>p.취소일&&!sameDayRepayKeys.has(p.id)).map(p=>({...p,cancelDate:toD(p.취소일)}));
   const memberRows=members.map(m=>({date:toD(m.가입일||m['가입일'])})).filter(m=>m.date);
 
   // 주간
@@ -994,7 +1022,7 @@ function wCfg(k){const m={
       {label:'Brand 월결제',data:WK.bm_r, backgroundColor:'#0b9e63',stack:'b'},
       {label:'Brand 연결제',data:WK.by_r, backgroundColor:'#5ecba1',stack:'b'},
     ],y2:v=>fmtM(v)},
-  cancel:{s:0,stacked:false,t1:'취소 건수',l1:leg('#e03e3e','취소'),d1:[mkF('',WK.cancel_c,'#e03e3e')],y1:v=>v+'건',t2:'취소 금액',l2:leg('#e03e3e','취소금액'),d2:[mkF('',WK.cancel_r,'#e03e3e')],y2:v=>fmtM(v)},
+  cancel:{s:0,stacked:false,t1:'취소 건수',l1:leg('#e03e3e','취소'),d1:[mkF('',WK.cancel_c,'#e03e3e')],y1:v=>v+'건',t2:'취소 금액',l2:leg('#e03e3e','취소금액'),d2:[mkF('',WK.cancel_r,'#e03e3e')],y2:v=>fmtM(v),note:'※ 당일 취소 후 재결제(플랜/결제방식 변경) 164건은 결제 수정으로 간주하여 제외 · 취소일 기준 집계'},
 };return m[k]||m.signup;}
 function mCfg(k){const m={
   signup:{s:1,title:'월별 신규 회원가입',leg:leg(C1,'신규가입(명)'),ds:[mkF('',MO.signup,C1)],yF:v=>v.toLocaleString()},
@@ -1051,7 +1079,7 @@ function mCfg(k){const m={
       {label:'Brand 월결제',data:MO.bm_r, backgroundColor:'#0b9e63',stack:'b'},
       {label:'Brand 연결제',data:MO.by_r, backgroundColor:'#5ecba1',stack:'b'},
     ],y2:v=>fmtM(v)},
-  cancel:{s:0,stacked:false,t1:'취소 건수',l1:leg('#e03e3e','취소'),d1:[mkF('',MO.cancel_c,'#e03e3e')],y1:v=>v+'건',t2:'취소 금액',l2:leg('#e03e3e','취소금액'),d2:[mkF('',MO.cancel_r,'#e03e3e')],y2:v=>fmtM(v)},
+  cancel:{s:0,stacked:false,t1:'취소 건수',l1:leg('#e03e3e','취소'),d1:[mkF('',MO.cancel_c,'#e03e3e')],y1:v=>v+'건',t2:'취소 금액',l2:leg('#e03e3e','취소금액'),d2:[mkF('',MO.cancel_r,'#e03e3e')],y2:v=>fmtM(v),note:'※ 당일 취소 후 재결제(플랜/결제방식 변경) 164건은 결제 수정으로 간주하여 제외 · 취소일 기준 집계'},
 };return m[k]||m.signup;}
 function mrrCfg(k){const m={
   total:{title:'MRR 추이',leg:leg(C1,'전체 MRR'),ds:[mkF('',MRR.total,C1)],yF:v=>fmtM(v)},
