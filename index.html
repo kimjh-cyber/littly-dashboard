@@ -241,6 +241,25 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
       <div style="font-size:10px;color:var(--text3)">* 종료일 기준 활성 구독 스냅샷 · 월결제 = 금액 그대로, 연결제 = 연간금액 ÷ 12</div>
     </div>
   </div>
+
+  <!-- ── LTV 뷰 ── -->
+  <div id="sltv" class="sec">
+    <div class="period-label">LTV &nbsp;·&nbsp; <strong>멤버별 누적 결제 기반</strong></div>
+    <div class="mrr-hero" id="ltv-hero"></div>
+    <div class="tb" id="ltv-tabs">
+      <button class="t active" onclick="showLTV('plan',this)">플랜별 평균 LTV</button>
+      <button class="t" onclick="showLTV('cohort',this)">코호트별 LTV</button>
+      <button class="t" onclick="showLTV('dist',this)">결제 횟수 분포</button>
+      <button class="t" onclick="showLTV('cumul',this)">누적 LTV 추이</button>
+    </div>
+    <div class="card">
+      <div class="ct" id="ltv-t"></div>
+      <div id="ltv-l" class="leg"></div>
+      <div style="position:relative;height:280px"><canvas id="ltvC" role="img" aria-label="LTV 차트"></canvas></div>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:-6px">* 취소 포함 전체 결제 금액 기준 (환불 미차감)</div>
+  </div>
+
 </div>
 
 <script>
