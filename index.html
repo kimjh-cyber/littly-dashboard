@@ -106,6 +106,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
     <button class="vsb active" onclick="switchV('w',this)">주간 뷰</button>
     <button class="vsb" onclick="switchV('m',this)">월간 뷰</button>
     <button class="vsb" onclick="switchV('mrr',this)">MRR</button>
+  <button class="vsb" onclick="switchV('ltv',this)">LTV</button>
   </div>
 
   <div class="filter-bar">
@@ -195,6 +196,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
         <div id="m-summary-text" style="font-size:13px;color:var(--text);line-height:1.7"></div>
       </div>
       <div class="kg" id="m-kpi"></div>
+      <div id="m-proj-banner" style="display:none;background:linear-gradient(135deg,rgba(26,110,245,0.04),rgba(11,158,99,0.04));border:0.5px solid rgba(26,110,245,0.15);border-radius:12px;padding:14px 18px;margin-bottom:12px"></div>
       <div class="tb" id="m-tabs">
         <button class="t active" onclick="showM('signup',this)">요약</button>
         <div class="tsep"></div>
@@ -269,7 +271,7 @@ function mkF(l,d,c){return{label:l,data:d,borderColor:c,backgroundColor:c+'22',f
 
 let WK={},MO={},MRR={};
 let wR={s:0,e:0},mR={s:0,e:0};
-let ch={wC:null,wOv1:null,wOv2:null,wSum1:null,wSum2:null,wD1:null,wD2:null,mC:null,mOv1:null,mOv2:null,mSum1:null,mSum2:null,mD1:null,mD2:null,mrrC:null};
+let ch={wC:null,wOv1:null,wOv2:null,wSum1:null,wSum2:null,wD1:null,wD2:null,mC:null,mOv1:null,mOv2:null,mSum1:null,mSum2:null,mD1:null,mD2:null,mrrC:null,ltvC:null};
 
 function isoWeek(d){const dt=new Date(d);dt.setHours(0,0,0,0);dt.setDate(dt.getDate()+4-(dt.getDay()||7));const y=new Date(dt.getFullYear(),0,1);return Math.ceil(((dt-y)/86400000+1)/7);}
 function getWk(d){return`${d.getFullYear()}_${isoWeek(d)}`;}
@@ -369,6 +371,33 @@ function process(upgrades,payments,members){
   MO.mon_r=MO.pm_r.map((_,i)=>MO.pm_r[i]+MO.bm_r[i]);MO.yr_r=MO.py_r.map((_,i)=>MO.py_r[i]+MO.by_r[i]);
   MO.pro_r=MO.pm_r.map((_,i)=>MO.pm_r[i]+MO.py_r[i]);MO.biz_r=MO.bm_r.map((_,i)=>MO.bm_r[i]+MO.by_r[i]);
   MO.net_r=MO.rev.map((_,i)=>MO.rev[i]-MO.cancel_r[i]);
+
+  // 월별 일수 및 진행일 계산
+  const today = new Date();
+  MO.daysInMonth = sortMos.map(mo => {
+    const [y,m] = mo.split('-').map(Number);
+    return new Date(y, m, 0).getDate();
+  });
+  MO.daysElapsed = sortMos.map(mo => {
+    const [y,m] = mo.split('-').map(Number);
+    const moEnd = new Date(y, m, 0);
+    if(today >= moEnd) return moEnd.getDate(); // 완료된 달
+    if(today.getFullYear()===y && today.getMonth()+1===m) return today.getDate(); // 진행중
+    return new Date(y, m, 0).getDate();
+  });
+  MO.isCurrentMonth = sortMos.map(mo => {
+    const [y,m] = mo.split('-').map(Number);
+    return today.getFullYear()===y && today.getMonth()+1===m;
+  });
+  // 일평균 페이스 (진행중 달만 유효)
+  MO.dailyPace_total = MO.total.map((v,i) => MO.daysElapsed[i]>0 ? v/MO.daysElapsed[i] : 0);
+  MO.dailyPace_rev   = MO.rev.map((v,i)   => MO.daysElapsed[i]>0 ? v/MO.daysElapsed[i] : 0);
+  MO.dailyPace_new   = MO.new_c.map((v,i) => MO.daysElapsed[i]>0 ? v/MO.daysElapsed[i] : 0);
+  // 예상 월말값
+  MO.projected_total = MO.total.map((v,i) => Math.round(MO.dailyPace_total[i] * MO.daysInMonth[i]));
+  MO.projected_rev   = MO.rev.map((v,i)   => Math.round(MO.dailyPace_rev[i]   * MO.daysInMonth[i]));
+  MO.projected_new   = MO.new_c.map((v,i) => Math.round(MO.dailyPace_new[i]   * MO.daysInMonth[i]));
+
   // 신규/갱신 × 플랜 교차 - 월간
   MO.new_pro_c=MO._mos.map(mo=>moD[mo].new_pm_c||0);MO.new_biz_c=MO._mos.map(mo=>moD[mo].new_bm_c||0);
   MO.ren_pro_c=MO._mos.map(mo=>moD[mo].ren_pm_c||0);MO.ren_biz_c=MO._mos.map(mo=>moD[mo].ren_bm_c||0);
@@ -457,7 +486,15 @@ function renderWKpi(){
 }
 function renderMKpi(){
   const i=mR.e,p=mR.e>0?mR.e-1:0;
-  document.getElementById('m-period').innerHTML=`${MO.lb[i]} &nbsp;·&nbsp; <strong>전월 대비</strong>`;
+  const isCurMo = MO.isCurrentMonth && MO.isCurrentMonth[mR.e];
+  const curMoIdx = mR.e; // 진행중 월은 제외하지 않고 표시하되 예상치 함께 표시
+  const elapsed = MO.daysElapsed ? MO.daysElapsed[curMoIdx] : 0;
+  const daysIn  = MO.daysInMonth ? MO.daysInMonth[curMoIdx] : 30;
+  const progress = daysIn > 0 ? Math.round(elapsed/daysIn*100) : 0;
+  const periodExtra = isCurMo
+    ? ` <span style="font-size:11px;color:var(--blue);background:var(--blue-dim);padding:2px 8px;border-radius:10px;margin-left:4px">${elapsed}일 경과 (${progress}%)</span>`
+    : '';
+  document.getElementById('m-period').innerHTML=`${MO.lb[i]} &nbsp;·&nbsp; <strong>전월 대비</strong>${periodExtra}`;
   document.getElementById('m-kpi').innerHTML=
     kpi('신규 회원가입',MO.signup[i].toLocaleString()+'명',wow(MO.signup[i],MO.signup[p]))+
     kpi('전체 전환',MO.total[i]+'건',wow(MO.total[i],MO.total[p]))+
@@ -467,6 +504,39 @@ function renderMKpi(){
     kpi('갱신 결제',MO.ren_c[i]+'건',wow(MO.ren_c[i],MO.ren_c[p]))+
     kpi('취소',MO.cancel_c[i]+'건',wow(MO.cancel_c[i],MO.cancel_c[p]))+
     kpi('전환율',MO.signup[i]>0?(MO.total[i]/MO.signup[i]*100).toFixed(2)+'%':'—',wow(MO.total[i]/Math.max(MO.signup[i],1),MO.total[p]/Math.max(MO.signup[p],1)));
+
+  // 진행중 월이면 예상치 배너 추가
+  const projBanner = document.getElementById('m-proj-banner');
+  if(isCurMo && MO.projected_total && projBanner) {
+    const pTot = MO.projected_total[i];
+    const pRev = MO.projected_rev[i];
+    const pNew = MO.projected_new[i];
+    const prevTot = MO.total[p], prevRev = MO.rev[p], prevNew = MO.new_c[p];
+    projBanner.style.display = 'block';
+    projBanner.innerHTML = `
+      <div style="font-size:11px;font-weight:600;color:var(--blue);margin-bottom:8px">
+        📈 ${MO.lb[i]} 월말 예상 <span style="font-weight:400;color:var(--text3)">(${elapsed}일 페이스 기준)</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <div style="background:var(--bg3);border-radius:8px;padding:10px 12px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">전체 전환 예상</div>
+          <div style="font-size:16px;font-weight:600;color:var(--text)">${pTot.toLocaleString()}건</div>
+          <div style="font-size:11px;margin-top:3px">${wow(pTot,prevTot)} vs 전월 실적</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;padding:10px 12px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">매출 예상</div>
+          <div style="font-size:16px;font-weight:600;color:var(--text)">${fmtM(pRev)}원</div>
+          <div style="font-size:11px;margin-top:3px">${wow(pRev,prevRev)} vs 전월 실적</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:8px;padding:10px 12px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:4px">신규 결제 예상</div>
+          <div style="font-size:16px;font-weight:600;color:var(--text)">${pNew.toLocaleString()}건</div>
+          <div style="font-size:11px;margin-top:3px">${wow(pNew,prevNew)} vs 전월 실적</div>
+        </div>
+      </div>`;
+  } else if(projBanner) {
+    projBanner.style.display = 'none';
+  }
 }
 function renderMRRHero(){
   const l=MRR.total.length-1,p=l-1;
@@ -580,9 +650,11 @@ function switchV(v,b){
   document.getElementById('sw').className='sec'+(v==='w'?' show':'');
   document.getElementById('sm').className='sec'+(v==='m'?' show':'');
   document.getElementById('smrr').className='sec'+(v==='mrr'?' show':'');
+  document.getElementById('sltv').className='sec'+(v==='ltv'?' show':'');
   updateSelects(v==='mrr'?'m':v);
   if(v==='m'&&!ch.mC)setTimeout(()=>showM('signup',document.querySelector('#m-tabs .t')),30);
   if(v==='mrr'&&!ch.mrrC)setTimeout(()=>showMRR('total',document.querySelector('#mrr-tabs .t')),30);
+  if(v==='ltv')setTimeout(()=>initLTV(),30);
 }
 
 function applyQuick(unit,n,btn){
@@ -898,6 +970,14 @@ async function genSummary(view) {
   const pct = (a,b) => b>0 ? ((a-b)/b*100).toFixed(1) : '0';
   const fmt = v => Math.round(v/10000).toLocaleString()+'만원';
 
+  // 진행중 월이면 페이스 정보 추가
+  const paceContext = (!isW && MO.isCurrentMonth && MO.isCurrentMonth[mR.e])
+    ? `\n※ 현재 월 진행 상황: ${MO.daysElapsed[mR.e]}일 경과 (${Math.round(MO.daysElapsed[mR.e]/MO.daysInMonth[mR.e]*100)}% 진행)
+- 현재 페이스 기준 월말 예상 전환: ${MO.projected_total[mR.e]}건 (전월 실적 ${MO.total[p]}건 대비 ${((MO.projected_total[mR.e]-MO.total[p])/MO.total[p]*100).toFixed(1)}% 변화)
+- 현재 페이스 기준 월말 예상 매출: ${fmtM(MO.projected_rev[mR.e])}원 (전월 실적 ${fmtM(MO.rev[p])} 대비 ${((MO.projected_rev[mR.e]-MO.rev[p])/MO.rev[p]*100).toFixed(1)}% 변화)
+- 이 달 수치는 ${MO.daysElapsed[mR.e]}일치 데이터이므로 단순 전월 비교 대신 페이스(일평균) 기준으로 분석해주세요.`
+    : '';
+
   const prompt = `당신은 SaaS 스타트업의 데이터 분석가입니다. 아래 KPI 데이터를 보고 경영진을 위한 핵심 인사이트를 3~4문장으로 요약해주세요.
 
 기간: ${lb}${unit} (비교: 전${isW?'주':'월'})
@@ -912,7 +992,7 @@ async function genSummary(view) {
 - 월결제: ${src.mon_c[i]}건 / ${fmt(src.mon_r[i])} (${pct(src.mon_c[i],src.mon_c[p])}% 변화)
 - 연결제: ${src.yr_c[i]}건 / ${fmt(src.yr_r[i])} (${pct(src.yr_c[i],src.yr_c[p])}% 변화)
 - 취소: ${src.cancel_c[i]}건 / ${fmt(src.cancel_r[i])} (${pct(src.cancel_c[i],src.cancel_c[p])}% 변화)
-- 전환율: ${src.signup[i]>0?(src.total[i]/src.signup[i]*100).toFixed(2):'0'}%
+- 전환율: ${src.signup[i]>0?(src.total[i]/src.signup[i]*100).toFixed(2):'0'}%${paceContext||''}
 
 요약 작성 규칙:
 1. 가장 눈에 띄는 변화 1~2개를 첫 문장에
@@ -940,6 +1020,158 @@ textEl.innerHTML = rendered;
     textEl.innerHTML = '<span style="color:var(--red)">요약 생성 실패. 잠시 후 다시 시도해주세요.</span>';
   }
   if(btnEl) btnEl.disabled = false;
+}
+
+
+// ── LTV 계산 & 차트 ──
+let LTV = {};
+let ltvInited = false;
+
+function initLTV() {
+  if(ltvInited) { showLTV('plan', document.querySelector('#ltv-tabs .t')); return; }
+  ltvInited = true;
+
+  // memberId별 누적 결제 집계
+  // joined 데이터를 다시 순회 (process 함수 밖에서 접근 불가 → WK/MO raw 기반 재구성)
+  // payments + upgrades는 이미 joined로 집계됨 → 전역으로 노출 필요
+  // 대신 WK/MO 데이터로 근사치 계산
+
+  // 멤버별 LTV: pm_r(Pro월), py_r(Pro연), bm_r(Biz월), by_r(Biz연) 월별 합산
+  // 실제 memberId별 집계는 _ltvData 전역 변수에서 가져옴
+  const raw = window._ltvRaw || [];
+  if(!raw.length){ renderLTVFallback(); return; }
+
+  // memberId별 집계
+  const memberMap = {};
+  raw.forEach(p => {
+    const mid = p.memberId;
+    if(!mid) return;
+    if(!memberMap[mid]) memberMap[mid] = {total:0, cnt:0, plan:'', firstDate:p.생성일};
+    memberMap[mid].total += parseInt(p.금액)||0;
+    memberMap[mid].cnt++;
+    if(!memberMap[mid].plan && p._plan) memberMap[mid].plan = p._plan;
+    if(p.생성일 < memberMap[mid].firstDate) memberMap[mid].firstDate = p.생성일;
+  });
+
+  const members = Object.values(memberMap);
+  const proMembers = members.filter(m=>m.plan==='pro');
+  const bizMembers = members.filter(m=>m.plan==='business');
+
+  LTV.avgAll  = members.length > 0 ? Math.round(members.reduce((a,m)=>a+m.total,0)/members.length) : 0;
+  LTV.avgPro  = proMembers.length > 0 ? Math.round(proMembers.reduce((a,m)=>a+m.total,0)/proMembers.length) : 0;
+  LTV.avgBiz  = bizMembers.length > 0 ? Math.round(bizMembers.reduce((a,m)=>a+m.total,0)/bizMembers.length) : 0;
+  LTV.totalMembers = members.length;
+  LTV.proCount = proMembers.length;
+  LTV.bizCount = bizMembers.length;
+
+  // 결제 횟수별 분포
+  const cntDist = {};
+  members.forEach(m => {
+    const bucket = m.cnt >= 10 ? '10+' : String(m.cnt);
+    cntDist[bucket] = (cntDist[bucket]||0) + 1;
+  });
+  LTV.cntLabels = ['1','2','3','4','5','6','7','8','9','10+'];
+  LTV.cntData   = LTV.cntLabels.map(l=>cntDist[l]||0);
+
+  // 코호트별 (가입월 기준) 평균 LTV
+  const cohortMap = {};
+  members.forEach(m => {
+    if(!m.firstDate) return;
+    const d = new Date(m.firstDate);
+    if(isNaN(d)) return;
+    const mo = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if(!cohortMap[mo]) cohortMap[mo] = {total:0, cnt:0};
+    cohortMap[mo].total += m.total;
+    cohortMap[mo].cnt++;
+  });
+  const cohortKeys = Object.keys(cohortMap).sort().slice(-18); // 최근 18개월
+  LTV.cohortLabels = cohortKeys.map(k=>k.slice(2));
+  LTV.cohortAvg    = cohortKeys.map(k=>cohortMap[k].cnt>0?Math.round(cohortMap[k].total/cohortMap[k].cnt):0);
+
+  // 누적 LTV 추이 (월별 신규 가입 코호트의 평균 누적 결제액 - 전체 평균)
+  LTV.cumulLabels = LTV.cohortLabels;
+  LTV.cumulData   = LTV.cohortAvg;
+
+  // 히어로 카드
+  document.getElementById('ltv-hero').innerHTML = `
+    <div>
+      <div class="mrr-label">평균 LTV (전체)</div>
+      <div class="mrr-value">${LTV.avgAll.toLocaleString()}원</div>
+      <div class="mrr-sub">총 ${LTV.totalMembers.toLocaleString()}명 기준</div>
+    </div>
+    <div class="mrr-meta">
+      <div><div class="mrr-item-label">Pro 평균 LTV</div><div class="mrr-item-value" style="color:${C1}">${LTV.avgPro.toLocaleString()}원</div><div style="font-size:10px;color:var(--text3)">${LTV.proCount}명</div></div>
+      <div><div class="mrr-item-label">Brand 평균 LTV</div><div class="mrr-item-value" style="color:${C2}">${LTV.avgBiz.toLocaleString()}원</div><div style="font-size:10px;color:var(--text3)">${LTV.bizCount}명</div></div>
+      <div><div class="mrr-item-label">평균 결제 횟수</div><div class="mrr-item-value">${members.length>0?(members.reduce((a,m)=>a+m.cnt,0)/members.length).toFixed(1):'0'}회</div></div>
+      <div><div class="mrr-item-label">1회 결제 후 이탈</div><div class="mrr-item-value" style="color:var(--red)">${members.length>0?Math.round(members.filter(m=>m.cnt===1).length/members.length*100):'0'}%</div></div>
+    </div>`;
+
+  showLTV('plan', document.querySelector('#ltv-tabs .t'));
+}
+
+function renderLTVFallback() {
+  document.getElementById('ltv-hero').innerHTML = `<div style="color:var(--text3);font-size:13px">LTV 계산을 위한 raw 데이터가 없습니다.</div>`;
+}
+
+function showLTV(k, b) {
+  document.querySelectorAll('#ltv-tabs .t').forEach(t=>t.classList.remove('active'));
+  if(b) b.classList.add('active');
+  if(ch.ltvC){ch.ltvC.destroy();ch.ltvC=null;}
+
+  const cfgs = {
+    plan: {
+      title:'플랜별 평균 LTV',
+      leg: leg(C1,'Pro')+leg(C2,'Brand'),
+      type:'bar',
+      data:{
+        labels:['Pro','Brand','전체 평균'],
+        datasets:[{
+          data:[LTV.avgPro||0, LTV.avgBiz||0, LTV.avgAll||0],
+          backgroundColor:[C1,C2,C3],
+          borderRadius:6, borderWidth:0
+        }]
+      },
+      yF: v=>v.toLocaleString()+'원'
+    },
+    cohort: {
+      title:'코호트별 평균 LTV (가입월 기준)',
+      leg: leg(C1,'평균 LTV'),
+      type:'bar',
+      data:{labels:LTV.cohortLabels||[], datasets:[{data:LTV.cohortAvg||[],backgroundColor:C1+'99',borderColor:C1,borderWidth:1,borderRadius:4}]},
+      yF: v=>v.toLocaleString()+'원'
+    },
+    dist: {
+      title:'결제 횟수별 멤버 분포',
+      leg: leg(C3,'멤버수'),
+      type:'bar',
+      data:{labels:LTV.cntLabels||[], datasets:[{data:LTV.cntData||[],backgroundColor:LTV.cntLabels?.map((_,i)=>i===0?C5+'cc':C3+'99')||[],borderRadius:4,borderWidth:0}]},
+      yF: v=>v.toLocaleString()+'명'
+    },
+    cumul: {
+      title:'코호트별 누적 LTV 추이',
+      leg: leg(C4,'코호트 평균 LTV'),
+      type:'line',
+      data:{labels:LTV.cumulLabels||[], datasets:[{label:'',data:LTV.cumulData||[],borderColor:C4,backgroundColor:C4+'22',fill:true,tension:0.35,pointRadius:3,borderWidth:2}]},
+      yF: v=>v.toLocaleString()+'원'
+    }
+  };
+
+  const c = cfgs[k] || cfgs.plan;
+  document.getElementById('ltv-t').textContent = c.title;
+  document.getElementById('ltv-l').innerHTML = c.leg;
+
+  ch.ltvC = new Chart(document.getElementById('ltvC'), {
+    type: c.type,
+    data: c.data,
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:GR}, ticks:{color:TR, font:{size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:15}},
+        y:{beginAtZero:true, grid:{color:GR}, ticks:{color:TR, font:{size:10}, callback:c.yF}}
+      }
+    }
+  });
 }
 
 loadData();
