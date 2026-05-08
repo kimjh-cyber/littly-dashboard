@@ -311,6 +311,7 @@ function process(upgrades,payments,members){
   joined.sort((a,b)=>a.생성일-b.생성일);
   const firstSeen={};
   joined.forEach(p=>{const wk=getWk(p.생성일);if(!firstSeen[p.memberId])firstSeen[p.memberId]=wk;p.is_new=firstSeen[p.memberId]===wk;});
+  window._ltvRaw=joined.map(p=>({memberId:p.memberId,금액:p.금액,생성일:p.생성일,_plan:p.플랜}));
 
   const cancelRows=joined.filter(p=>p.취소일).map(p=>({...p,cancelDate:toD(p.취소일)}));
   const memberRows=members.map(m=>({date:toD(m.가입일||m['가입일'])})).filter(m=>m.date);
