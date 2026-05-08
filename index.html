@@ -243,7 +243,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 
 <script>
 // ━━━ Apps Script URL (여기만 수정하면 됩니다) ━━━
-const API = 'https://script.google.com/macros/s/AKfycbyYNGhmoljuKCgHfd5Hr9_84da_hdN11P7IIc8Yi4RLeFvx4bFrZPYtxp4gHq6pUo09/exec';
+const API = 'https://script.google.com/macros/s/AKfycbzNehb6BbrWOuXPXPbwvaW3ZVqRTbXPn9bWxasQmLOWKEBUGpcSbGMbVdkwNR1nNvsI/exec';
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 function parseCSV(text){
@@ -871,11 +871,14 @@ async function loadData(){
   }
 }
 
-// ── 규칙 기반 자동 요약 ──
-function genSummary(view) {
+// ── Claude API 요약 (Apps Script 경유) ──
+async function genSummary(view) {
   const isW = view === 'w';
   const textEl = document.getElementById(`${view}-summary-text`);
   const btnEl  = document.getElementById(`${view}-summary-btn`);
+
+  textEl.innerHTML = '<span style="color:var(--text3)">✦ 분석 중...</span>';
+  if(btnEl) btnEl.disabled = true;
 
   const i   = isW ? wR.e : mR.e;
   const p   = i > 0 ? i - 1 : 0;
@@ -883,70 +886,40 @@ function genSummary(view) {
   const lb  = isW ? WK.lb[i] : MO.lb[i];
   const unit = isW ? '주차' : '';
 
-  const pct  = (a,b) => b>0 ? ((a-b)/b*100) : 0;
-  const pctS = (a,b) => { const v=pct(a,b); return (v>=0?'▲':'▼')+Math.abs(v).toFixed(1)+'%'; };
-  const fmt  = v => Math.round(v/10000).toLocaleString()+'만원';
-  const isUp = (a,b) => a >= b;
+  const pct = (a,b) => b>0 ? ((a-b)/b*100).toFixed(1) : '0';
+  const fmt = v => Math.round(v/10000).toLocaleString()+'만원';
 
-  const signupChg  = pct(src.signup[i], src.signup[p]);
-  const revChg     = pct(src.rev[i],    src.rev[p]);
-  const totalChg   = pct(src.total[i],  src.total[p]);
-  const proRevChg  = pct(src.pro_r[i],  src.pro_r[p]);
-  const bizRevChg  = pct(src.biz_r[i],  src.biz_r[p]);
-  const yrRevChg   = pct(src.yr_r[i],   src.yr_r[p]);
-  const monRevChg  = pct(src.mon_r[i],  src.mon_r[p]);
-  const newChg     = pct(src.new_c[i],  src.new_c[p]);
-  const renChg     = pct(src.ren_c[i],  src.ren_c[p]);
-  const cancelChg  = pct(src.cancel_c[i], src.cancel_c[p]);
-  const convRate   = src.signup[i]>0 ? (src.total[i]/src.signup[i]*100) : 0;
-  const convPrev   = src.signup[p]>0 ? (src.total[p]/src.signup[p]*100) : 0;
-  const convChg    = pct(convRate, convPrev);
+  const prompt = `당신은 SaaS 스타트업의 데이터 분석가입니다. 아래 KPI 데이터를 보고 경영진을 위한 핵심 인사이트를 3~4문장으로 요약해주세요.
 
-  // 가장 큰 변화 요인 찾기
-  const revDrivers = [
-    {name:'Pro 결제', chg: proRevChg, rev: src.pro_r[i], pctOfTotal: src.rev[i]>0?src.pro_r[i]/src.rev[i]*100:0},
-    {name:'Brand 결제', chg: bizRevChg, rev: src.biz_r[i], pctOfTotal: src.rev[i]>0?src.biz_r[i]/src.rev[i]*100:0},
-    {name:'연결제', chg: yrRevChg, rev: src.yr_r[i], pctOfTotal: src.rev[i]>0?src.yr_r[i]/src.rev[i]*100:0},
-    {name:'월결제', chg: monRevChg, rev: src.mon_r[i], pctOfTotal: src.rev[i]>0?src.mon_r[i]/src.rev[i]*100:0},
-  ];
-  const biggestDriver = revDrivers.sort((a,b)=>Math.abs(b.chg)-Math.abs(a.chg))[0];
-  const topRevShare   = revDrivers.sort((a,b)=>b.rev-a.rev)[0];
+기간: ${lb}${unit} (비교: 전${isW?'주':'월'})
+- 신규 회원가입: ${src.signup[i].toLocaleString()}명 (${pct(src.signup[i],src.signup[p])}% 변화)
+- 전체 전환: ${src.total[i]}건 (${pct(src.total[i],src.total[p])}% 변화)
+- 총 매출: ${fmt(src.rev[i])} (${pct(src.rev[i],src.rev[p])}% 변화)
+- 순 매출: ${fmt(src.net_r[i])} (${pct(src.net_r[i],src.net_r[p])}% 변화)
+- 신규 결제: ${src.new_c[i]}건 (${pct(src.new_c[i],src.new_c[p])}% 변화)
+- 갱신 결제: ${src.ren_c[i]}건 (${pct(src.ren_c[i],src.ren_c[p])}% 변화)
+- Pro 결제: ${src.pro_c[i]}건 / ${fmt(src.pro_r[i])} (${pct(src.pro_c[i],src.pro_c[p])}% 변화)
+- Brand 결제: ${src.biz_c[i]}건 / ${fmt(src.biz_r[i])} (${pct(src.biz_c[i],src.biz_c[p])}% 변화)
+- 월결제: ${src.mon_c[i]}건 / ${fmt(src.mon_r[i])} (${pct(src.mon_c[i],src.mon_c[p])}% 변화)
+- 연결제: ${src.yr_c[i]}건 / ${fmt(src.yr_r[i])} (${pct(src.yr_c[i],src.yr_c[p])}% 변화)
+- 취소: ${src.cancel_c[i]}건 / ${fmt(src.cancel_r[i])} (${pct(src.cancel_c[i],src.cancel_c[p])}% 변화)
+- 전환율: ${src.signup[i]>0?(src.total[i]/src.signup[i]*100).toFixed(2):'0'}%
 
-  // 문장 생성
-  const sentences = [];
+요약 작성 규칙:
+1. 가장 눈에 띄는 변화 1~2개를 첫 문장에
+2. 그 원인이나 기여 요인을 두 번째 문장에
+3. 주의할 점이나 긍정적 시그널을 마지막 문장에
+4. 숫자는 구체적으로 언급 (예: 전주 대비 12.3% 증가)
+5. 한국어로, 비즈니스 톤으로`;
 
-  // 1문장: 가입 + 매출 핵심 변화
-  const s1parts = [];
-  if(Math.abs(signupChg) >= 5)
-    s1parts.push(`신규 회원가입은 ${src.signup[i].toLocaleString()}명으로 전${isW?'주':'월'} 대비 ${pctS(src.signup[i],src.signup[p])} ${isUp(src.signup[i],src.signup[p])?'증가':'감소'}했습니다`);
-  if(Math.abs(revChg) >= 3)
-    s1parts.push(`총 매출은 ${fmt(src.rev[i])}으로 ${pctS(src.rev[i],src.rev[p])} ${isUp(src.rev[i],src.rev[p])?'증가':'감소'}했습니다`);
-  if(s1parts.length === 0)
-    s1parts.push(`${lb}${unit} 주요 지표는 전${isW?'주':'월'}과 비슷한 수준을 유지했습니다`);
-  sentences.push(s1parts.join(', '));
-
-  // 2문장: 매출 기여 요인
-  const topShare = revDrivers.sort((a,b)=>b.rev-a.rev)[0];
-  const driver2  = revDrivers.sort((a,b)=>b.rev-a.rev)[1];
-  sentences.push(
-    `매출 구성을 보면 ${topShare.name}(${fmt(topShare.rev)}, 전체의 ${topShare.pctOfTotal.toFixed(0)}%)이 가장 큰 비중을 차지했으며, ` +
-    `${biggestDriver.name}이 전${isW?'주':'월'} 대비 ${pctS(biggestDriver.rev||biggestDriver.rev, src[isW?'pro_r':'pro_r']?.[p]||0)} 변화하며 매출에 ${Math.abs(biggestDriver.chg)>10?'큰':'일부'} 영향을 미쳤습니다`
-  );
-
-  // 3문장: 전환 & 신규/갱신
-  const convTrend = convChg >= 0 ? `전환율 ${convRate.toFixed(2)}%로 ${pctS(convRate,convPrev)} 상승한 점은 긍정적입니다` : `전환율이 ${convRate.toFixed(2)}%로 ${pctS(convRate,convPrev)} 하락했습니다`;
-  const newRenTrend = newChg >= 0
-    ? `신규 결제(${src.new_c[i]}건)가 ${pctS(src.new_c[i],src.new_c[p])} 늘었으며`
-    : `신규 결제(${src.new_c[i]}건)가 ${pctS(src.new_c[i],src.new_c[p])} 줄었으며`;
-  sentences.push(`${newRenTrend} 갱신 결제는 ${src.ren_c[i]}건으로 ${pctS(src.ren_c[i],src.ren_c[p])} 변화했습니다. ${convTrend}.`);
-
-  // 4문장: 취소 주의 or 긍정 시그널
-  if(cancelChg >= 20)
-    sentences.push(`⚠️ 취소 건수가 ${src.cancel_c[i]}건으로 전${isW?'주':'월'} 대비 ${pctS(src.cancel_c[i],src.cancel_c[p])} 증가했으니 원인 파악이 필요합니다.`);
-  else if(cancelChg <= -20)
-    sentences.push(`✅ 취소 건수가 ${src.cancel_c[i]}건으로 전${isW?'주':'월'} 대비 ${pctS(src.cancel_c[i],src.cancel_c[p])} 감소한 점은 긍정적입니다.`);
-
-  textEl.innerHTML = sentences.map(s=>`<p style="margin-bottom:6px">${s}</p>`).join('');
+  try {
+    const res = await fetch(`${API}?sheet=summary&prompt=${encodeURIComponent(prompt)}`);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    textEl.innerHTML = data.text.split('\n').filter(s=>s.trim()).map(s=>`<p style="margin-bottom:6px">${s}</p>`).join('');
+  } catch(e) {
+    textEl.innerHTML = '<span style="color:var(--red)">요약 생성 실패. 잠시 후 다시 시도해주세요.</span>';
+  }
   if(btnEl) btnEl.disabled = false;
 }
 
