@@ -245,6 +245,17 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
   <!-- ── LTV 뷰 ── -->
   <div id="sltv" class="sec">
     <div class="period-label">LTV &nbsp;·&nbsp; <strong>멤버별 누적 결제 기반</strong></div>
+    <!-- AI 요약 카드 -->
+    <div id="ltv-summary-card" style="display:none;background:linear-gradient(135deg,rgba(26,110,245,0.04),rgba(124,92,232,0.04));border:0.5px solid rgba(26,110,245,0.15);border-radius:12px;padding:14px 18px;margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;font-weight:600;color:var(--blue)">AI 요약</span>
+          <span style="font-size:10px;color:var(--text3);background:var(--bg3);padding:2px 7px;border-radius:10px">Claude</span>
+        </div>
+        <button onclick="genLTVSummary()" id="ltv-summary-btn" style="font-size:11px;padding:4px 12px;border-radius:6px;border:0.5px solid rgba(26,110,245,0.3);background:var(--blue-dim);color:var(--blue);cursor:pointer">새로 생성</button>
+      </div>
+      <div id="ltv-summary-text" style="font-size:13px;color:var(--text);line-height:1.7"></div>
+    </div>
     <div class="mrr-hero" id="ltv-hero"></div>
     <div class="tb" id="ltv-tabs">
       <button class="t active" onclick="showLTV('plan',this)">플랜별 평균 LTV</button>
@@ -1069,7 +1080,7 @@ function initLTV() {
     if(!memberMap[mid]) memberMap[mid] = {total:0, cnt:0, plan:'', firstDate:p.생성일};
     memberMap[mid].total += parseInt(p.금액)||0;
     memberMap[mid].cnt++;
-    if(!memberMap[mid].plan && p._plan) memberMap[mid].plan = p._plan;
+    if(p._plan) memberMap[mid].plan = p._plan; // 마지막 플랜으로 업데이트
     if(p.생성일 < memberMap[mid].firstDate) memberMap[mid].firstDate = p.생성일;
   });
 
@@ -1100,13 +1111,17 @@ function initLTV() {
     const d = new Date(m.firstDate);
     if(isNaN(d)) return;
     const mo = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    if(!cohortMap[mo]) cohortMap[mo] = {total:0, cnt:0};
+    if(!cohortMap[mo]) cohortMap[mo] = {total:0,cnt:0,proTotal:0,proCnt:0,bizTotal:0,bizCnt:0};
     cohortMap[mo].total += m.total;
     cohortMap[mo].cnt++;
+    if(m.plan==='pro'){ cohortMap[mo].proTotal+=m.total; cohortMap[mo].proCnt++; }
+    else if(m.plan==='business'){ cohortMap[mo].bizTotal+=m.total; cohortMap[mo].bizCnt++; }
   });
-  const cohortKeys = Object.keys(cohortMap).sort().slice(-18); // 최근 18개월
-  LTV.cohortLabels = cohortKeys.map(k=>k.slice(2));
-  LTV.cohortAvg    = cohortKeys.map(k=>cohortMap[k].cnt>0?Math.round(cohortMap[k].total/cohortMap[k].cnt):0);
+  const cohortKeys = Object.keys(cohortMap).sort().slice(-18);
+  LTV.cohortLabels  = cohortKeys.map(k=>k.slice(2));
+  LTV.cohortAvg     = cohortKeys.map(k=>cohortMap[k].cnt>0?Math.round(cohortMap[k].total/cohortMap[k].cnt):0);
+  LTV.cohortProAvg  = cohortKeys.map(k=>cohortMap[k].proCnt>0?Math.round(cohortMap[k].proTotal/cohortMap[k].proCnt):0);
+  LTV.cohortBizAvg  = cohortKeys.map(k=>cohortMap[k].bizCnt>0?Math.round(cohortMap[k].bizTotal/cohortMap[k].bizCnt):0);
 
   // 누적 LTV 추이 (월별 신규 가입 코호트의 평균 누적 결제액 - 전체 평균)
   LTV.cumulLabels = LTV.cohortLabels;
@@ -1127,6 +1142,60 @@ function initLTV() {
     </div>`;
 
   showLTV('plan', document.querySelector('#ltv-tabs .t'));
+
+  // AI 요약 카드 표시 + 자동 생성
+  const lsc = document.getElementById('ltv-summary-card');
+  if(lsc) {
+    lsc.style.display = 'block';
+    if(!document.getElementById('ltv-summary-text').textContent) genLTVSummary();
+  }
+}
+
+
+async function genLTVSummary() {
+  const textEl = document.getElementById('ltv-summary-text');
+  const btnEl  = document.getElementById('ltv-summary-btn');
+  textEl.innerHTML = '<span style="color:var(--text3)">✦ 분석 중...</span>';
+  if(btnEl) btnEl.disabled = true;
+
+  const fmt = v => Math.round(v/10000).toLocaleString()+'만원';
+  const churnPct = LTV.totalMembers>0 ? Math.round((LTV.cntData?.[0]||0)/LTV.totalMembers*100) : 0;
+  const avgCnt = LTV.totalMembers>0 ? (window._ltvRaw?.reduce((a,_,i,arr)=>a,0)||0) : 0;
+  const topCohort = LTV.cohortAvg?.length>0 ? Math.max(...LTV.cohortAvg) : 0;
+  const topCohortLabel = LTV.cohortLabels?.[LTV.cohortAvg?.indexOf(topCohort)] || '';
+
+  const prompt = `당신은 SaaS 스타트업의 데이터 분석가입니다. 아래 LTV(고객 생애 가치) 데이터를 보고 경영진을 위한 핵심 인사이트를 3~4문장으로 요약해주세요.
+
+LTV 현황:
+- 전체 평균 LTV: ${LTV.avgAll?.toLocaleString()}원
+- Pro 플랜 평균 LTV: ${LTV.avgPro?.toLocaleString()}원 (${LTV.proCount}명)
+- Brand 플랜 평균 LTV: ${LTV.avgBiz?.toLocaleString()}원 (${LTV.bizCount}명)
+- Brand/Pro LTV 비율: ${LTV.avgPro>0?((LTV.avgBiz/LTV.avgPro)*100).toFixed(0):'0'}%
+- 1회 결제 후 이탈률: ${churnPct}%
+- 최고 LTV 코호트: ${topCohortLabel} (평균 ${topCohort.toLocaleString()}원)
+- 전체 유료 멤버수: ${LTV.totalMembers?.toLocaleString()}명
+
+요약 작성 규칙:
+1. Pro vs Brand LTV 차이와 그 의미를 첫 문장에
+2. 1회 이탈률과 장기 고객 특성을 두 번째 문장에
+3. LTV 개선을 위한 구체적 제언을 마지막 문장에
+4. 숫자는 구체적으로 언급
+5. 한국어로, 비즈니스 톤으로`;
+
+  try {
+    const res = await fetch(`${API}?sheet=summary&prompt=${encodeURIComponent(prompt)}`);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    const rendered = data.text
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .split('\n\n').filter(s=>s.trim())
+      .map(s=>`<p style="margin-bottom:8px;line-height:1.75">${s.replace(/\n/g,'<br>')}</p>`)
+      .join('');
+    textEl.innerHTML = rendered;
+  } catch(e) {
+    textEl.innerHTML = '<span style="color:var(--red)">요약 생성 실패. 잠시 후 다시 시도해주세요.</span>';
+  }
+  if(btnEl) btnEl.disabled = false;
 }
 
 function renderLTVFallback() {
@@ -1141,23 +1210,59 @@ function showLTV(k, b) {
   const cfgs = {
     plan: {
       title:'플랜별 평균 LTV',
-      leg: leg(C1,'Pro')+leg(C2,'Brand'),
+      leg: leg(C1,'Pro')+leg(C2,'Brand')+leg(C3,'전체 평균'),
       type:'bar',
       data:{
-        labels:['Pro','Brand','전체 평균'],
-        datasets:[{
-          data:[LTV.avgPro||0, LTV.avgBiz||0, LTV.avgAll||0],
-          backgroundColor:[C1,C2,C3],
-          borderRadius:6, borderWidth:0
-        }]
+        labels:['Pro','Brand'],
+        datasets:[
+          {
+            type:'bar',
+            label:'플랜별 LTV',
+            data:[LTV.avgPro||0, LTV.avgBiz||0],
+            backgroundColor:[C1,C2],
+            borderRadius:6, borderWidth:0,
+            yAxisID:'y'
+          },
+          {
+            type:'line',
+            label:'전체 평균',
+            data:[LTV.avgAll||0, LTV.avgAll||0],
+            borderColor:C3,
+            borderWidth:2,
+            borderDash:[6,4],
+            pointRadius:0,
+            fill:false,
+            yAxisID:'y'
+          }
+        ]
       },
       yF: v=>v.toLocaleString()+'원'
     },
     cohort: {
       title:'코호트별 평균 LTV (가입월 기준)',
-      leg: leg(C1,'평균 LTV'),
+      leg: leg(C1,'Pro')+leg(C2,'Brand'),
       type:'bar',
-      data:{labels:LTV.cohortLabels||[], datasets:[{data:LTV.cohortAvg||[],backgroundColor:C1+'99',borderColor:C1,borderWidth:1,borderRadius:4}]},
+      data:{
+        labels:LTV.cohortLabels||[],
+        datasets:[
+          {
+            type:'bar',
+            label:'Pro',
+            data:LTV.cohortProAvg||[],
+            backgroundColor:C1+'cc',
+            borderRadius:4, borderWidth:0,
+            stack:'ltv'
+          },
+          {
+            type:'bar',
+            label:'Brand',
+            data:LTV.cohortBizAvg||[],
+            backgroundColor:C2+'cc',
+            borderRadius:4, borderWidth:0,
+            stack:'ltv2'
+          }
+        ]
+      },
       yF: v=>v.toLocaleString()+'원'
     },
     dist: {
