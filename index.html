@@ -267,12 +267,41 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
       <button class="t detail" onclick="showLTV('churn_cnt',this)">이탈 전 결제횟수</button>
       <button class="t detail" onclick="showLTV('survival',this)">코호트 생존율</button>
     </div>
-    <div class="card">
+    <!-- 단일 차트 -->
+    <div id="ltv-single" class="card">
       <div class="ct" id="ltv-t"></div>
       <div id="ltv-l" class="leg"></div>
-      <div style="position:relative;height:280px"><canvas id="ltvC" role="img" aria-label="LTV 차트"></canvas></div>
+      <div style="position:relative;height:260px"><canvas id="ltvC" role="img" aria-label="LTV 차트"></canvas></div>
     </div>
-    <div style="font-size:10px;color:var(--text3);margin-top:-6px">* 취소 포함 전체 결제 금액 기준 (환불 미차감)</div>
+    <!-- LTV 추이 (상단 누적 + 하단 플랜별) -->
+    <div id="ltv-combo" style="display:none">
+      <div class="card" style="margin-bottom:10px">
+        <div class="ct" id="ltv-combo-t1"></div>
+        <div id="ltv-combo-l1" class="leg"></div>
+        <div style="position:relative;height:220px"><canvas id="ltvC1" role="img" aria-label="누적 LTV 추이"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="ct" id="ltv-combo-t2"></div>
+        <div id="ltv-combo-l2" class="leg"></div>
+        <div style="position:relative;height:200px"><canvas id="ltvC2" role="img" aria-label="플랜별 평균 LTV"></canvas></div>
+      </div>
+    </div>
+    <!-- 이탈 (2열) -->
+    <div id="ltv-churn" style="display:none">
+      <div class="r2">
+        <div class="card" style="margin-bottom:0">
+          <div class="ct">이탈까지 기간 분포</div>
+          <div class="leg">''' + "leg(C1,'Pro')+leg(C2,'Brand')" + '''</div>
+          <div style="position:relative;height:240px"><canvas id="ltvChurn1" role="img" aria-label="이탈까지 기간"></canvas></div>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="ct">이탈 전 결제 횟수</div>
+          <div class="leg">''' + "leg(C1,'Pro')+leg(C2,'Brand')" + '''</div>
+          <div style="position:relative;height:240px"><canvas id="ltvChurn2" role="img" aria-label="이탈 전 결제횟수"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:6px">* 취소 포함 전체 결제 금액 기준 (환불 미차감)</div>
   </div>
 
 </div>
@@ -305,7 +334,7 @@ function mkF(l,d,c){return{label:l,data:d,borderColor:c,backgroundColor:c+'22',f
 
 let WK={},MO={},MRR={};
 let wR={s:0,e:0},mR={s:0,e:0};
-let ch={wC:null,wOv1:null,wOv2:null,wSum1:null,wSum2:null,wD1:null,wD2:null,mC:null,mOv1:null,mOv2:null,mSum1:null,mSum2:null,mD1:null,mD2:null,mrrC:null,ltvC:null};
+let ch={wC:null,wOv1:null,wOv2:null,wSum1:null,wSum2:null,wD1:null,wD2:null,mC:null,mOv1:null,mOv2:null,mSum1:null,mSum2:null,mD1:null,mD2:null,mrrC:null,ltvC:null,ltvC1:null,ltvC2:null,ltvChurn1:null,ltvChurn2:null};
 
 function isoWeek(d){const dt=new Date(d);dt.setHours(0,0,0,0);dt.setDate(dt.getDate()+4-(dt.getDay()||7));const y=new Date(dt.getFullYear(),0,1);return Math.ceil(((dt-y)/86400000+1)/7);}
 function getWk(d){return`${d.getFullYear()}_${isoWeek(d)}`;}
@@ -1131,6 +1160,68 @@ function initLTV() {
   LTV.cumulLabels = LTV.cohortLabels;
   LTV.cumulData   = LTV.cohortAvg;
 
+  // ── 시간 경과별 누적 LTV ──
+  const cumulNMonths = [1,3,6,12,18,24];
+  const rawAll = window._ltvRaw || [];
+
+  // 멤버별 결제 내역
+  const mPayMap = {};
+  rawAll.forEach(p => {
+    if(!p.memberId) return;
+    if(!mPayMap[p.memberId]) mPayMap[p.memberId] = {firstPay:p.생성일, pays:[], plan:p._plan};
+    if(p.생성일 < mPayMap[p.memberId].firstPay) mPayMap[p.memberId].firstPay = p.생성일;
+    mPayMap[p.memberId].pays.push({date:new Date(p.생성일), amt:parseInt(p.금액)||0});
+    if(p._plan) mPayMap[p.memberId].plan = p._plan;
+  });
+
+  const now2 = new Date();
+  // N개월 시점 누적 금액 평균 계산
+  LTV.elapsedMonths = cumulNMonths;
+  LTV.elapsedAll = cumulNMonths.map(n => {
+    const eligible = Object.values(mPayMap).filter(m => {
+      const firstD = new Date(m.firstPay);
+      const cutoff = new Date(firstD); cutoff.setMonth(cutoff.getMonth()+n);
+      return cutoff <= now2;
+    });
+    if(!eligible.length) return null;
+    const avg = eligible.reduce((sum, m) => {
+      const firstD = new Date(m.firstPay);
+      const cutoff = new Date(firstD); cutoff.setMonth(cutoff.getMonth()+n);
+      return sum + m.pays.filter(p=>p.date<=cutoff).reduce((a,p)=>a+p.amt,0);
+    }, 0) / eligible.length;
+    return Math.round(avg);
+  });
+  LTV.elapsedPro = cumulNMonths.map(n => {
+    const eligible = Object.values(mPayMap).filter(m => {
+      if(m.plan!=='pro') return false;
+      const firstD = new Date(m.firstPay);
+      const cutoff = new Date(firstD); cutoff.setMonth(cutoff.getMonth()+n);
+      return cutoff <= now2;
+    });
+    if(!eligible.length) return null;
+    const avg = eligible.reduce((sum, m) => {
+      const firstD = new Date(m.firstPay);
+      const cutoff = new Date(firstD); cutoff.setMonth(cutoff.getMonth()+n);
+      return sum + m.pays.filter(p=>p.date<=cutoff).reduce((a,p)=>a+p.amt,0);
+    }, 0) / eligible.length;
+    return Math.round(avg);
+  });
+  LTV.elapsedBiz = cumulNMonths.map(n => {
+    const eligible = Object.values(mPayMap).filter(m => {
+      if(m.plan!=='business') return false;
+      const firstD = new Date(m.firstPay);
+      const cutoff = new Date(firstD); cutoff.setMonth(cutoff.getMonth()+n);
+      return cutoff <= now2;
+    });
+    if(!eligible.length) return null;
+    const avg = eligible.reduce((sum, m) => {
+      const firstD = new Date(m.firstPay);
+      const cutoff = new Date(firstD); cutoff.setMonth(cutoff.getMonth()+n);
+      return sum + m.pays.filter(p=>p.date<=cutoff).reduce((a,p)=>a+p.amt,0);
+    }, 0) / eligible.length;
+    return Math.round(avg);
+  });
+
   // ── 이탈 분석 ──
   const canceledMembers = members.filter(m => {
     // 취소일이 있는 결제가 하나라도 있으면 이탈자
@@ -1263,7 +1354,7 @@ function initLTV() {
       <div><div class="mrr-item-label">1회 결제 후 이탈</div><div class="mrr-item-value" style="color:var(--red)">${members.length>0?Math.round(members.filter(m=>m.cnt===1).length/members.length*100):'0'}%</div></div>
     </div>`;
 
-  showLTV('plan', document.querySelector('#ltv-tabs .t'));
+  showLTV('cumul', document.querySelector('#ltv-tabs .t'));
 
   // AI 요약 카드 표시 + 자동 생성
   const lsc = document.getElementById('ltv-summary-card');
@@ -1327,154 +1418,90 @@ function renderLTVFallback() {
   document.getElementById('ltv-hero').innerHTML = `<div style="color:var(--text3);font-size:13px">LTV 계산을 위한 raw 데이터가 없습니다.</div>`;
 }
 
+function killLTV(){
+  ['ltvC','ltvC1','ltvC2','ltvChurn1','ltvChurn2'].forEach(id=>{if(ch[id]){ch[id].destroy();ch[id]=null;}});
+}
+function mkLTV(id,type,data,yF){
+  const el=document.getElementById(id); if(!el)return null;
+  return ch[id]=new Chart(el,{type,data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:GR},ticks:{color:TR,font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:15}},y:{beginAtZero:true,grid:{color:GR},ticks:{color:TR,font:{size:10},callback:yF}}}}});
+}
+
 function showLTV(k, b) {
   document.querySelectorAll('#ltv-tabs .t').forEach(t=>t.classList.remove('active'));
   if(b) b.classList.add('active');
-  if(ch.ltvC){ch.ltvC.destroy();ch.ltvC=null;}
+  killLTV();
 
-  const cfgs = {
-    churn_time: {
-      title:'첫 결제 후 이탈까지 기간 분포',
-      leg: leg(C1,'Pro')+leg(C2,'Brand'),
-      type:'bar',
-      data:{
-        labels: LTV.churnTimeBuckets||[],
-        datasets:[
-          {label:'Pro', data:LTV.churnTimeProData||[], backgroundColor:C1+'cc', borderRadius:4, borderWidth:0, stack:'s'},
-          {label:'Brand', data:LTV.churnTimeBizData||[], backgroundColor:C2+'cc', borderRadius:4, borderWidth:0, stack:'s'},
-        ]
-      },
-      yF: v=>v.toLocaleString()+'명'
-    },
-    churn_cnt: {
-      title:'이탈 전 결제 횟수 분포 (취소 멤버 기준)',
-      leg: leg(C1,'Pro')+leg(C2,'Brand'),
-      type:'bar',
-      data:{
-        labels: LTV.churnCntBuckets||[],
-        datasets:[
-          {label:'Pro', data:LTV.churnCntProData||[], backgroundColor:C1+'cc', borderRadius:4, borderWidth:0, stack:'s'},
-          {label:'Brand', data:LTV.churnCntBizData||[], backgroundColor:C2+'cc', borderRadius:4, borderWidth:0, stack:'s'},
-        ]
-      },
-      yF: v=>v.toLocaleString()+'명'
-    },
-    survival: {
-      title:'코호트별 생존율 (첫 결제월 기준)',
-      leg: (LTV.survivalMonths||[]).map((m,i)=>{
-        const colors=['#378ADD','#7F77DD','#0b9e63','#d4890a','#e03e3e','#555'];
-        return leg(colors[i]||'#888', m+'개월 후');
-      }).join(''),
-      type:'line',
-      data:{
-        labels: LTV.survivalLabels||[],
-        datasets: (LTV.survivalMonths||[]).map((m,i)=>{
-          const colors=['#378ADD','#7F77DD','#0b9e63','#d4890a','#e03e3e','#555'];
-          return {
-            label: m+'개월 후',
-            data: LTV.survivalData?.[i]||[],
-            borderColor: colors[i]||'#888',
-            backgroundColor:'transparent',
-            tension:0.3, pointRadius:3, borderWidth:2,
-            spanGaps:false
-          };
-        })
-      },
-      yF: v=>v+'%'
-    },
-    plan: {
-      title:'플랜별 평균 LTV',
-      leg: leg(C1,'Pro')+leg(C2,'Brand')+leg(C3,'전체 평균'),
-      type:'bar',
-      data:{
-        labels:['Pro','Brand'],
-        datasets:[
-          {
-            type:'bar',
-            label:'플랜별 LTV',
-            data:[LTV.avgPro||0, LTV.avgBiz||0],
-            backgroundColor:[C1,C2],
-            borderRadius:6, borderWidth:0,
-            order:2,
-            yAxisID:'y'
-          },
-          {
-            type:'line',
-            label:'전체 평균',
-            data:[LTV.avgAll||0, LTV.avgAll||0],
-            borderColor:'#e03e3e',
-            borderWidth:2,
-            borderDash:[8,4],
-            pointRadius:0,
-            fill:false,
-            order:1,
-            yAxisID:'y'
-          }
-        ]
-      },
-      yF: v=>v.toLocaleString()+'원'
-    },
-    cohort: {
-      title:'코호트별 평균 LTV (가입월 기준)',
-      leg: leg(C1,'Pro')+leg(C2,'Brand'),
-      type:'bar',
-      data:{
-        labels:LTV.cohortLabels||[],
-        datasets:[
-          {
-            type:'bar',
-            label:'Pro',
-            data:LTV.cohortProAvg||[],
-            backgroundColor:C1+'cc',
-            borderRadius:4, borderWidth:0,
-            stack:'ltv'
-          },
-          {
-            type:'bar',
-            label:'Brand',
-            data:LTV.cohortBizAvg||[],
-            backgroundColor:C2+'cc',
-            borderRadius:4, borderWidth:0,
-            stack:'ltv2'
-          }
-        ]
-      },
-      yF: v=>v.toLocaleString()+'원'
-    },
-    dist: {
-      title:'결제 횟수별 멤버 분포',
-      leg: leg(C3,'멤버수'),
-      type:'bar',
-      data:{labels:LTV.cntLabels||[], datasets:[{data:LTV.cntData||[],backgroundColor:LTV.cntLabels?.map((_,i)=>i===0?C5+'cc':C3+'99')||[],borderRadius:4,borderWidth:0}]},
-      yF: v=>v.toLocaleString()+'명'
-    },
-    cumul: {
-      title:'코호트별 누적 LTV 추이',
-      leg: leg(C4,'코호트 평균 LTV'),
-      type:'line',
-      data:{labels:LTV.cumulLabels||[], datasets:[{label:'',data:LTV.cumulData||[],borderColor:C4,backgroundColor:C4+'22',fill:true,tension:0.35,pointRadius:3,borderWidth:2}]},
-      yF: v=>v.toLocaleString()+'원'
-    }
-  };
+  const single = document.getElementById('ltv-single');
+  const combo  = document.getElementById('ltv-combo');
+  const churnD = document.getElementById('ltv-churn');
+  if(single) single.style.display='none';
+  if(combo)  combo.style.display='none';
+  if(churnD) churnD.style.display='none';
 
-  const c = cfgs[k] || cfgs.plan;
-  document.getElementById('ltv-t').textContent = c.title;
-  document.getElementById('ltv-l').innerHTML = c.leg;
+  if(k==='cumul'){
+    if(combo) combo.style.display='block';
+    document.getElementById('ltv-combo-t1').textContent='코호트별 누적 LTV 추이';
+    document.getElementById('ltv-combo-l1').innerHTML=leg(C4,'코호트 평균 LTV');
+    document.getElementById('ltv-combo-t2').textContent='플랜별 평균 LTV';
+    document.getElementById('ltv-combo-l2').innerHTML=leg(C1,'Pro')+leg(C2,'Brand')+leg('#e03e3e','전체 평균');
+    mkLTV('ltvC1','line',{labels:LTV.cumulLabels||[],datasets:[{label:'',data:LTV.cumulData||[],borderColor:C4,backgroundColor:C4+'22',fill:true,tension:0.35,pointRadius:3,borderWidth:2}]},v=>v.toLocaleString()+'원');
+    mkLTV('ltvC2','bar',{labels:['Pro','Brand'],datasets:[
+      {type:'bar',data:[LTV.avgPro||0,LTV.avgBiz||0],backgroundColor:[C1,C2],borderRadius:6,borderWidth:0,order:2},
+      {type:'line',data:[LTV.avgAll||0,LTV.avgAll||0],borderColor:'#e03e3e',borderWidth:2,borderDash:[8,4],pointRadius:0,fill:false,order:1}
+    ]},v=>v.toLocaleString()+'원');
 
-  ch.ltvC = new Chart(document.getElementById('ltvC'), {
-    type: c.type,
-    data: c.data,
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{grid:{color:GR}, ticks:{color:TR, font:{size:10}, maxRotation:0, autoSkip:true, maxTicksLimit:15}},
-        y:{beginAtZero:true, grid:{color:GR}, ticks:{color:TR, font:{size:10}, callback:c.yF}}
-      }
-    }
-  });
+  } else if(k==='elapsed'){
+    if(single) single.style.display='block';
+    document.getElementById('ltv-t').textContent='첫 결제 후 시간 경과별 평균 누적 LTV';
+    document.getElementById('ltv-l').innerHTML=leg(C3,'전체')+leg(C1,'Pro')+leg(C2,'Brand');
+    mkLTV('ltvC','line',{
+      labels:(LTV.elapsedMonths||[]).map(n=>n+'개월'),
+      datasets:[
+        {label:'전체',data:LTV.elapsedAll||[],borderColor:C3,fill:false,tension:0.3,pointRadius:5,borderWidth:2,spanGaps:false},
+        {label:'Pro',data:LTV.elapsedPro||[],borderColor:C1,fill:false,tension:0.3,pointRadius:5,borderWidth:2,spanGaps:false},
+        {label:'Brand',data:LTV.elapsedBiz||[],borderColor:C2,fill:false,tension:0.3,pointRadius:5,borderWidth:2,borderDash:[5,4],spanGaps:false},
+      ]
+    },v=>v?v.toLocaleString()+'원':'');
+
+  } else if(k==='dist'){
+    if(single) single.style.display='block';
+    document.getElementById('ltv-t').textContent='결제 횟수별 멤버 분포';
+    document.getElementById('ltv-l').innerHTML=leg(C3,'활성')+leg(C5,'이탈');
+    mkLTV('ltvC','bar',{labels:LTV.cntLabels||[],datasets:[{data:LTV.cntData||[],backgroundColor:LTV.cntLabels?.map((_,i)=>i===0?C5+'cc':C3+'99')||[],borderRadius:4,borderWidth:0}]},v=>v.toLocaleString()+'명');
+
+  } else if(k==='survival'){
+    if(single) single.style.display='block';
+    document.getElementById('ltv-t').textContent='코호트 생존율 (첫 결제월 기준)';
+    document.getElementById('ltv-l').innerHTML=(LTV.survivalMonths||[]).map((m,i)=>{
+      const colors=[C1,C2,C3,C4,C5,'#888'];
+      return leg(colors[i]||'#888',m+'개월 후');
+    }).join('');
+    mkLTV('ltvC','line',{
+      labels:LTV.survivalLabels||[],
+      datasets:(LTV.survivalMonths||[]).map((m,i)=>{
+        const colors=[C1,C2,C3,C4,C5,'#888'];
+        return{label:m+'개월',data:LTV.survivalData?.[i]||[],borderColor:colors[i],backgroundColor:'transparent',tension:0.3,pointRadius:3,borderWidth:2,spanGaps:false};
+      })
+    },v=>v+'%');
+
+  } else if(k==='churn'){
+    if(churnD) churnD.style.display='block';
+    mkLTV('ltvChurn1','bar',{
+      labels:LTV.churnTimeBuckets||[],
+      datasets:[
+        {label:'Pro',data:LTV.churnTimeProData||[],backgroundColor:C1+'cc',borderRadius:4,borderWidth:0,stack:'s'},
+        {label:'Brand',data:LTV.churnTimeBizData||[],backgroundColor:C2+'cc',borderRadius:4,borderWidth:0,stack:'s'},
+      ]
+    },v=>v.toLocaleString()+'명');
+    mkLTV('ltvChurn2','bar',{
+      labels:LTV.churnCntBuckets||[],
+      datasets:[
+        {label:'Pro',data:LTV.churnCntProData||[],backgroundColor:C1+'cc',borderRadius:4,borderWidth:0,stack:'s'},
+        {label:'Brand',data:LTV.churnCntBizData||[],backgroundColor:C2+'cc',borderRadius:4,borderWidth:0,stack:'s'},
+      ]
+    },v=>v.toLocaleString()+'명');
+  }
 }
-
 loadData();
 </script>
 </body>
