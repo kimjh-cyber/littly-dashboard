@@ -1467,17 +1467,35 @@ function initLTV() {
   document.getElementById('ltv-hero').innerHTML = `
     <div>
       <div class="mrr-label">평균 LTV (전체)</div>
-      <div class="mrr-value">${LTV.avgAll.toLocaleString()}원</div>
-      <div class="mrr-sub">총 ${LTV.totalMembers.toLocaleString()}명 기준</div>
+      <div class="mrr-value">\${LTV.avgAll?.toLocaleString()}원</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:3px">총 \${LTV.totalMembers?.toLocaleString()}명 기준</div>
     </div>
-    <div class="mrr-meta">
-      <div><div class="mrr-item-label">Pro 평균 LTV</div><div class="mrr-item-value" style="color:${C1}">${LTV.avgPro.toLocaleString()}원</div><div style="font-size:10px;color:var(--text3)">${LTV.proCount}명</div></div>
-      <div><div class="mrr-item-label">Brand 평균 LTV</div><div class="mrr-item-value" style="color:${C2}">${LTV.avgBiz.toLocaleString()}원</div><div style="font-size:10px;color:var(--text3)">${LTV.bizCount}명</div></div>
-      <div><div class="mrr-item-label">평균 결제 횟수</div><div class="mrr-item-value">${members.length>0?(members.reduce((a,m)=>a+m.cnt,0)/members.length).toFixed(1):'0'}회</div></div>
-      <div><div class="mrr-item-label">1회 결제 후 이탈</div><div class="mrr-item-value" style="color:var(--red)">${members.length>0?Math.round(members.filter(m=>m.cnt===1).length/members.length*100):'0'}%</div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1;margin-left:20px">
+      <div style="background:rgba(26,110,245,0.06);border:0.5px solid rgba(26,110,245,0.2);border-radius:10px;padding:12px 14px">
+        <div style="font-size:11px;font-weight:600;color:var(--blue);margin-bottom:8px">Pro · \${LTV.proCount?.toLocaleString()}명</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+          <div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">평균 LTV</div><div style="font-size:15px;font-weight:600;color:var(--blue)">\${LTV.avgPro?.toLocaleString()}원</div></div>
+          <div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">평균 결제</div><div style="font-size:15px;font-weight:600">\${(members.filter(m=>m.plan==='pro').reduce((a,m)=>a+m.cnt,0)/Math.max(members.filter(m=>m.plan==='pro').length,1)).toFixed(1)}회</div></div>
+          <div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">1회 이탈</div><div style="font-size:15px;font-weight:600;color:var(--red)">\${Math.round(members.filter(m=>m.plan==='pro'&&m.cnt===1).length/Math.max(members.filter(m=>m.plan==='pro').length,1)*100)}%</div></div>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          \${[1,3,6,12,18,24].map((n,i)=>{const v=LTV.retentionPro?.[i];return v!=null?`<span style="font-size:10px;background:rgba(26,110,245,0.1);padding:2px 7px;border-radius:8px;color:var(--blue)">\${n}개월 <b>\${v}%</b></span>`:''}).join('')}
+        </div>
+      </div>
+      <div style="background:rgba(124,92,232,0.06);border:0.5px solid rgba(124,92,232,0.2);border-radius:10px;padding:12px 14px">
+        <div style="font-size:11px;font-weight:600;color:var(--purple);margin-bottom:8px">Brand · \${LTV.bizCount?.toLocaleString()}명</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+          <div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">평균 LTV</div><div style="font-size:15px;font-weight:600;color:var(--purple)">\${LTV.avgBiz?.toLocaleString()}원</div></div>
+          <div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">평균 결제</div><div style="font-size:15px;font-weight:600">\${(members.filter(m=>m.plan==='business').reduce((a,m)=>a+m.cnt,0)/Math.max(members.filter(m=>m.plan==='business').length,1)).toFixed(1)}회</div></div>
+          <div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">1회 이탈</div><div style="font-size:15px;font-weight:600;color:var(--red)">\${Math.round(members.filter(m=>m.plan==='business'&&m.cnt===1).length/Math.max(members.filter(m=>m.plan==='business').length,1)*100)}%</div></div>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          \${[1,3,6,12,18,24].map((n,i)=>{const v=LTV.retentionBiz?.[i];return v!=null?`<span style="font-size:10px;background:rgba(124,92,232,0.1);padding:2px 7px;border-radius:8px;color:var(--purple)">\${n}개월 <b>\${v}%</b></span>`:''}).join('')}
+        </div>
+      </div>
     </div>`;
 
-  showLTV('cumul', document.querySelector('#ltv-tabs .t'));
+    showLTV('cumul', document.querySelector('#ltv-tabs .t'));
 
   // AI 요약 카드 표시 + 자동 생성
   const lsc = document.getElementById('ltv-summary-card');
