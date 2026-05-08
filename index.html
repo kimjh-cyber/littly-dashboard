@@ -236,9 +236,17 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
         <button class="t" onclick="showMRR('paytype',this)">월결제 / 연결제</button>
         <button class="t" onclick="showMRR('active',this)">활성 구독수</button>
         <button class="t" onclick="showMRR('arpu',this)">ARPU</button>
+        <div class="tsep"></div>
+        <button class="t detail" onclick="showMRR('forecast',this)">3개월 예측</button>
       </div>
       <div class="card"><div class="ct" id="mrr-t"></div><div id="mrr-l" class="leg"></div><div style="position:relative;height:250px"><canvas id="mrrC"></canvas></div></div>
-      <div style="font-size:10px;color:var(--text3)">* 종료일 기준 활성 구독 스냅샷 · 월결제 = 금액 그대로, 연결제 = 연간금액 ÷ 12</div>
+      <div id="mrr-note-area"></div>
+    <div id="mrr-forecast-banner" style="display:none;background:linear-gradient(135deg,rgba(11,158,99,0.04),rgba(26,110,245,0.04));border:0.5px solid rgba(11,158,99,0.2);border-radius:12px;padding:14px 18px;margin-top:10px">
+      <div style="font-size:11px;font-weight:600;color:var(--green);margin-bottom:10px">📈 향후 3개월 MRR 예측 <span style="font-weight:400;color:var(--text3);font-size:10px">(구성요소 기반)</span></div>
+      <div id="mrr-forecast-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:8px"></div>
+      <div style="font-size:10px;color:var(--text3)" id="mrr-forecast-assumption"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text3)">* 종료일 기준 활성 구독 스냅샷 · 월결제 = 금액 그대로, 연결제 = 연간금액 ÷ 12</div>
     <!-- MRR 예측 배너 -->
     <div id="mrr-forecast-banner" style="display:none;background:linear-gradient(135deg,rgba(11,158,99,0.04),rgba(26,110,245,0.04));border:0.5px solid rgba(11,158,99,0.2);border-radius:12px;padding:14px 18px;margin-top:12px">
       <div style="font-size:11px;font-weight:600;color:var(--green);margin-bottom:10px">📈 향후 3개월 MRR 예측 <span style="font-weight:400;color:var(--text3);font-size:10px">(구성요소 기반)</span></div>
