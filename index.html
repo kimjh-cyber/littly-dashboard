@@ -562,8 +562,8 @@ function renderMKpi(){
   document.getElementById('m-kpi').innerHTML=
     kpi('신규 회원가입',MO.signup[i].toLocaleString()+'명',wow(MO.signup[i],MO.signup[p]))+
     kpi('전체 전환',MO.total[i]+'건',wow(MO.total[i],MO.total[p]))+
-    kpi('총 매출',fmtM(MO.rev[i])+'만원',wow(MO.rev[i],MO.rev[p]))+
-    kpi('순 매출',fmtM(MO.net_r[i])+'만원',wow(MO.net_r[i],MO.net_r[p]))+
+    kpi('총 매출',fmtM(MO.rev[i])+'원',wow(MO.rev[i],MO.rev[p]))+
+    kpi('순 매출',fmtM(MO.net_r[i])+'원',wow(MO.net_r[i],MO.net_r[p]))+
     kpi('신규 결제',MO.new_c[i]+'건',wow(MO.new_c[i],MO.new_c[p]))+
     kpi('갱신 결제',MO.ren_c[i]+'건',wow(MO.ren_c[i],MO.ren_c[p]))+
     kpi('취소',MO.cancel_c[i]+'건',wow(MO.cancel_c[i],MO.cancel_c[p]))+
@@ -1035,15 +1035,18 @@ async function genSummary(view) {
   const fmt = v => Math.round(v/10000).toLocaleString()+'만원';
 
   // 진행중 월이면 페이스 정보 추가
+  const todayStr = new Date().toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric'});
   const paceContext = (!isW && MO.isCurrentMonth && MO.isCurrentMonth[mR.e])
-    ? `\n※ 현재 월 진행 상황: ${MO.daysElapsed[mR.e]}일 경과 (${Math.round(MO.daysElapsed[mR.e]/MO.daysInMonth[mR.e]*100)}% 진행)
+    ? `\n※ 오늘 날짜: ${todayStr}\n※ 현재 월 진행 상황: ${MO.daysElapsed[mR.e]}일 경과 (${Math.round(MO.daysElapsed[mR.e]/MO.daysInMonth[mR.e]*100)}% 진행)
 - 현재 페이스 기준 월말 예상 전환: ${MO.projected_total[mR.e]}건 (전월 실적 ${MO.total[p]}건 대비 ${((MO.projected_total[mR.e]-MO.total[p])/MO.total[p]*100).toFixed(1)}% 변화)
 - 현재 페이스 기준 월말 예상 매출: ${fmtM(MO.projected_rev[mR.e])}원 (전월 실적 ${fmtM(MO.rev[p])} 대비 ${((MO.projected_rev[mR.e]-MO.rev[p])/MO.rev[p]*100).toFixed(1)}% 변화)
 - 이 달 수치는 ${MO.daysElapsed[mR.e]}일치 데이터이므로 단순 전월 비교 대신 페이스(일평균) 기준으로 분석해주세요.`
     : '';
 
+  const todayPrompt = new Date().toLocaleDateString('ko-KR', {year:'numeric',month:'long',day:'numeric'});
   const prompt = `당신은 SaaS 스타트업의 데이터 분석가입니다. 아래 KPI 데이터를 보고 경영진을 위한 핵심 인사이트를 3~4문장으로 요약해주세요.
 
+오늘 날짜: ${todayPrompt}
 기간: ${lb}${unit} (비교: 전${isW?'주':'월'})
 - 신규 회원가입: ${src.signup[i].toLocaleString()}명 (${pct(src.signup[i],src.signup[p])}% 변화)
 - 전체 전환: ${src.total[i]}건 (${pct(src.total[i],src.total[p])}% 변화)
