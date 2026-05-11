@@ -45,7 +45,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 .period-label{font-size:12px;color:var(--text3);margin-bottom:14px;}
 .period-label strong{color:var(--text2);font-weight:500;}
 .kg{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:9px;margin-bottom:20px;}
-.kc{background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;}
+.kc{background:var(--bg2);border:0.5px solid var(--border);border-radius:10px;transition:background 0.2s,border-color 0.2s;padding:12px 14px;}
 .kl{font-size:11px;color:var(--text3);margin-bottom:5px;}
 .kv{font-size:19px;font-weight:600;color:var(--text);letter-spacing:-0.5px;line-height:1;}
 .ks{font-size:11px;margin-top:4px;}
@@ -344,12 +344,17 @@ function leg(c,l){return`<span style="display:flex;align-items:center"><span cla
 function kpi(l,v,s){
   const isUp = s.includes('▲');
   const isDown = s.includes('▼');
+  const cardBg = isUp
+    ? 'background:rgba(11,158,99,0.05);border-color:rgba(11,158,99,0.2);'
+    : isDown ? 'background:rgba(224,62,62,0.05);border-color:rgba(224,62,62,0.2);'
+    : '';
+  const valColor = isUp ? 'color:var(--green);' : isDown ? 'color:var(--red);' : '';
   const badgeStyle = isUp
-    ? 'background:rgba(11,158,99,0.1);color:var(--green);'
-    : isDown ? 'background:rgba(224,62,62,0.1);color:var(--red);'
+    ? 'background:rgba(11,158,99,0.12);color:var(--green);'
+    : isDown ? 'background:rgba(224,62,62,0.12);color:var(--red);'
     : 'background:var(--bg3);color:var(--text3);';
   const badge = s && s!=='—' ? `<span style="font-size:10px;${badgeStyle}padding:2px 6px;border-radius:4px;font-weight:500">${s}</span>` : `<span style="font-size:10px;color:var(--text3)">—</span>`;
-  return`<div class="kc"><div class="kl">${l}</div><div class="kv">${v}</div><div class="ks" style="margin-top:5px">${badge}</div></div>`;
+  return`<div class="kc" style="${cardBg}"><div class="kl">${l}</div><div class="kv" style="${valColor}">${v}</div><div class="ks" style="margin-top:5px">${badge}</div></div>`;
 }
 function wow(a,b){if(!b)return'<span class="fl">—</span>';const p=(a-b)/b*100;return`<span class="${p>=0?'up':'dn'}">${p>=0?'▲':'▼'} ${Math.abs(p).toFixed(1)}%</span>`;}
 function opts(yF){return{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:GR},ticks:{color:TR,font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:13}},y:{beginAtZero:false,grid:{color:GR},ticks:{color:TR,font:{size:10},callback:yF}}}};}
@@ -962,16 +967,31 @@ function renderPortion(view,k,idx,tid,gid){
 
   if(k==='cancel'){
     document.getElementById(tid).textContent='';
+    const netR = src.net_r[idx];
+    const totR = src.rev[idx];
+    const cancelR = src.cancel_r[idx];
+    const cancelImpact = totR>0 ? (cancelR/totR*100).toFixed(1) : '0';
     document.getElementById(gid).innerHTML=`
       <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:10px">${lb} 기준 · 취소 현황</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        ${[{label:'취소',c:src.cancel_c[idx],r:src.cancel_r[idx],color:'#e03e3e'},{label:'유효',c:src.total[idx]-src.cancel_c[idx],r:src.rev[idx]-src.cancel_r[idx],color:'#0b9e63'}].map(item=>`
-          <div style="background:rgba(${item.color==='#e03e3e'?'224,62,62':'11,158,99'},0.05);border:0.5px solid rgba(${item.color==='#e03e3e'?'224,62,62':'11,158,99'},0.2);border-radius:8px;padding:12px 14px">
-            <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:4px">${item.label}</div>
-            <div style="font-size:18px;font-weight:600;color:${item.color}">${item.c.toLocaleString()}건</div>
-            <div style="font-size:12px;color:var(--color-text-secondary);margin-top:2px">${fmtM(item.r)}원</div>
-            <div style="font-size:11px;color:${item.color};margin-top:4px">${totC>0?(item.c/totC*100).toFixed(1):'0'}%</div>
-          </div>`).join('')}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px">
+        <div style="background:rgba(224,62,62,0.05);border:0.5px solid rgba(224,62,62,0.2);border-radius:8px;padding:12px 14px">
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:4px">취소</div>
+          <div style="font-size:18px;font-weight:600;color:#e03e3e">${src.cancel_c[idx].toLocaleString()}건</div>
+          <div style="font-size:12px;color:var(--color-text-secondary);margin-top:2px">${fmtM(cancelR)}원</div>
+          <div style="font-size:11px;color:#e03e3e;margin-top:4px">${totC>0?(src.cancel_c[idx]/totC*100).toFixed(1):'0'}%</div>
+        </div>
+        <div style="background:rgba(11,158,99,0.05);border:0.5px solid rgba(11,158,99,0.2);border-radius:8px;padding:12px 14px">
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:4px">유효 결제</div>
+          <div style="font-size:18px;font-weight:600;color:#0b9e63">${(src.total[idx]-src.cancel_c[idx]).toLocaleString()}건</div>
+          <div style="font-size:12px;color:var(--color-text-secondary);margin-top:2px">${fmtM(src.rev[idx]-cancelR)}원</div>
+          <div style="font-size:11px;color:#0b9e63;margin-top:4px">${totC>0?((src.total[idx]-src.cancel_c[idx])/totC*100).toFixed(1):'0'}%</div>
+        </div>
+        <div style="background:var(--bg3);border:0.5px solid var(--border);border-radius:8px;padding:12px 14px">
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:4px">순매출</div>
+          <div style="font-size:18px;font-weight:600;color:var(--text)">${fmtM(netR)}원</div>
+          <div style="font-size:12px;color:#e03e3e;margin-top:2px">취소로 -${fmtM(cancelR)}원</div>
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-top:4px">총매출 대비 ${cancelImpact}% 차감</div>
+        </div>
       </div>`;
     return;
   }
@@ -1042,7 +1062,7 @@ function wCfg(k){const m={
       {label:'Brand 월결제',data:WK.bm_r, backgroundColor:'#0b9e63',stack:'b'},
       {label:'Brand 연결제',data:WK.by_r, backgroundColor:'#5ecba1',stack:'b'},
     ],y2:v=>fmtM(v)},
-  cancel:{s:0,stacked:false,t1:'취소 건수',l1:leg('#e03e3e','취소'),d1:[mkF('',WK.cancel_c,'#e03e3e')],y1:v=>v+'건',t2:'취소 금액',l2:leg('#e03e3e','취소금액'),d2:[mkF('',WK.cancel_r,'#e03e3e')],y2:v=>fmtM(v),note:'※ 당일 취소 후 재결제(플랜/결제방식 변경) 164건은 결제 수정으로 간주하여 제외 · 취소일 기준 집계'},
+  cancel:{s:0,stacked:false,t1:'취소 건수',l1:leg('#e03e3e','취소'),d1:[mkF('',WK.cancel_c,'#e03e3e')],y1:v=>v+'건',t2:'총매출 vs 순매출 (취소 영향)',l2:leg(C3,'총매출')+leg('#0a5c3a','순매출(취소차감)')+leg('#e03e3e','취소금액'),d2:[mkF('총매출',WK.rev,C3),mkL('순매출',WK.net_r,'#0a5c3a',[4,3]),mkL('취소금액',WK.cancel_r,'#e03e3e',[2,2])],y2:v=>fmtM(v),note:'※ 당일 취소 후 재결제(플랜/결제방식 변경) 164건은 결제 수정으로 간주하여 제외 · 취소일 기준 집계'},
 };return m[k]||m.signup;}
 function mCfg(k){const m={
   signup:{s:1,title:'월별 신규 회원가입',leg:leg(C1,'신규가입(명)'),ds:[mkF('',MO.signup,C1)],yF:v=>v.toLocaleString()},
@@ -1099,7 +1119,7 @@ function mCfg(k){const m={
       {label:'Brand 월결제',data:MO.bm_r, backgroundColor:'#0b9e63',stack:'b'},
       {label:'Brand 연결제',data:MO.by_r, backgroundColor:'#5ecba1',stack:'b'},
     ],y2:v=>fmtM(v)},
-  cancel:{s:0,stacked:false,t1:'취소 건수',l1:leg('#e03e3e','취소'),d1:[mkF('',MO.cancel_c,'#e03e3e')],y1:v=>v+'건',t2:'취소 금액',l2:leg('#e03e3e','취소금액'),d2:[mkF('',MO.cancel_r,'#e03e3e')],y2:v=>fmtM(v),note:'※ 당일 취소 후 재결제(플랜/결제방식 변경) 164건은 결제 수정으로 간주하여 제외 · 취소일 기준 집계'},
+  cancel:{s:0,stacked:false,t1:'취소 건수',l1:leg('#e03e3e','취소'),d1:[mkF('',MO.cancel_c,'#e03e3e')],y1:v=>v+'건',t2:'총매출 vs 순매출 (취소 영향)',l2:leg(C3,'총매출')+leg('#0a5c3a','순매출(취소차감)')+leg('#e03e3e','취소금액'),d2:[mkF('총매출',MO.rev,C3),mkL('순매출',MO.net_r,'#0a5c3a',[4,3]),mkL('취소금액',MO.cancel_r,'#e03e3e',[2,2])],y2:v=>fmtM(v),note:'※ 당일 취소 후 재결제(플랜/결제방식 변경) 164건은 결제 수정으로 간주하여 제외 · 취소일 기준 집계'},
 };return m[k]||m.signup;}
 function mrrCfg(k){const m={
   total:{title:'MRR 추이',leg:leg(C1,'전체 MRR'),ds:[mkF('',MRR.total,C1)],yF:v=>fmtM(v)},
