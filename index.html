@@ -253,11 +253,10 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
       <div id="mrr-forecast-cards" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:8px"></div>
       <div style="font-size:10px;color:var(--text3)">* 최근 3개월 신규 MRR 트렌드 + 평균 이탈율 적용 · 실제와 다를 수 있음</div>
     </div>
-    </div>
   </div>
 
   <!-- ── LTV 뷰 ── -->
-  <div id="sltv" class="sec" style="padding:16px 32px 40px">
+  <div id="sltv" class="sec">
     <div class="period-label">LTV &nbsp;·&nbsp; <strong>멤버별 누적 결제 기반</strong></div>
     <!-- AI 요약 카드 -->
     <div id="ltv-summary-card" style="display:none;background:linear-gradient(135deg,rgba(26,110,245,0.04),rgba(124,92,232,0.04));border:0.5px solid rgba(26,110,245,0.15);border-radius:12px;padding:14px 18px;margin-bottom:12px">
@@ -319,7 +318,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 
 <script>
 // ━━━ Apps Script URL (여기만 수정하면 됩니다) ━━━
-const API = 'https://script.google.com/macros/s/AKfycbx72xit25N7VjHn6H-LDdIvE8EM6fwf4-xhgjN2TgrC7SXiTwYgoWYD3V4h6vteAEFs/exec';
+const API = 'https://script.google.com/macros/s/AKfycbw8AJeSovBOYQ2deRirNlq4sehiItT5L6qVMf8Bx9xn51iNf7JFoRhywhN1ktLEh109/exec';
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 function parseCSV(text){
