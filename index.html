@@ -323,7 +323,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 
 <script>
 // ━━━ Apps Script URL (여기만 수정하면 됩니다) ━━━
-const API = 'https://script.google.com/macros/s/AKfycbw8AJeSovBOYQ2deRirNlq4sehiItT5L6qVMf8Bx9xn51iNf7JFoRhywhN1ktLEh109/exec';
+const API = 'https://script.google.com/macros/s/AKfycbzFSZOB9k6ZbivsSH25vgKKhSOOf5Xt85tRy7YfEy6WbbDD2CTljd_FTiR8V-vFwc6F/exec';
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 function parseCSV(text){
@@ -1202,7 +1202,11 @@ async function genSummary(view) {
 5. 한국어로, 비즈니스 톤으로`;
 
   try {
-    const res = await fetch(`${API}?sheet=summary&prompt=${encodeURIComponent(prompt)}`);
+    const res = await fetch(`${API}?sheet=summary`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({prompt})
+    });
     const data = await res.json();
     if(data.error) throw new Error(data.error);
     const rendered = data.text
@@ -1573,7 +1577,11 @@ LTV 현황:
 5. 한국어로, 비즈니스 톤으로`;
 
   try {
-    const res = await fetch(`${API}?sheet=summary&prompt=${encodeURIComponent(prompt)}`);
+    const res = await fetch(`${API}?sheet=summary`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({prompt})
+    });
     const data = await res.json();
     if(data.error) throw new Error(data.error);
     const rendered = data.text
