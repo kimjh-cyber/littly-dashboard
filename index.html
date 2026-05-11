@@ -1588,7 +1588,7 @@ function showLTV(k, b) {
 
   if(k==='cumul'){
     if(combo) combo.style.display='block';
-    document.getElementById('ltv-combo-t1').textContent='코호트별 누적 LTV 추이';
+    document.getElementById('ltv-combo-t1').textContent='가입월별 평균 누적 LTV (오래된 코호트일수록 높음)';
     document.getElementById('ltv-combo-l1').innerHTML=leg(C4,'코호트 평균 LTV');
     document.getElementById('ltv-combo-t2').textContent='플랜별 평균 LTV';
     document.getElementById('ltv-combo-l2').innerHTML=leg(C1,'Pro')+leg(C2,'Brand')+leg('#e03e3e','전체 평균');
@@ -1613,8 +1613,8 @@ function showLTV(k, b) {
 
   } else if(k==='dist'){
     if(single) single.style.display='block';
-    document.getElementById('ltv-t').textContent='결제 횟수별 멤버 분포';
-    document.getElementById('ltv-l').innerHTML=leg(C3,'활성')+leg(C5,'이탈');
+    document.getElementById('ltv-t').textContent='결제 횟수별 멤버 분포 (1회=첫 결제 후 미갱신 포함)';
+    document.getElementById('ltv-l').innerHTML=leg(C3,'2회 이상 유지')+leg(C5,'1회 후 미갱신');
     mkLTV('ltvC','bar',{
       labels:LTV.cntLabels||[],
       datasets:[{data:LTV.cntData||[],backgroundColor:LTV.cntLabels?.map((_,i)=>i===0?C5+'cc':C3+'99')||[],borderRadius:4,borderWidth:0}]
