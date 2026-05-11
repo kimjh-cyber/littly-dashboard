@@ -581,9 +581,6 @@ function initSelects(){
   });
 }
 function updateSelects(v){
-  // MRR/LTV는 기간 필터 의미없음 - 필터바 숨김
-  const fb = document.getElementById('filter-bar');
-  if(fb) fb.style.display = (v==='mrr'||v==='ltv') ? 'none' : '';
   const w=v==='w';
   ['rs-w','re-w'].forEach(id=>document.getElementById(id).style.display=w?'':'none');
   ['rs-m','re-m'].forEach(id=>document.getElementById(id).style.display=w?'none':'');
@@ -829,9 +826,14 @@ function switchV(v,b){
   document.getElementById('sm').className='sec'+(v==='m'?' show':'');
   document.getElementById('smrr').className='sec'+(v==='mrr'?' show':'');
   document.getElementById('sltv').className='sec'+(v==='ltv'?' show':'');
-  updateSelects(v==='mrr'?'m':v);
   const fb=document.getElementById('filter-bar');
-  if(fb){fb.classList.remove('view-w','view-m');if(v==='w')fb.classList.add('view-w');else if(v==='m')fb.classList.add('view-m');}
+  if(fb){
+    fb.style.display=(v==='mrr'||v==='ltv')?'none':'';
+    fb.classList.remove('view-w','view-m');
+    if(v==='w') fb.classList.add('view-w');
+    else if(v==='m') fb.classList.add('view-m');
+  }
+  updateSelects(v==='mrr'||v==='ltv'?'m':v);
   if(v==='m'&&!ch.mC)setTimeout(()=>showM('signup',document.querySelector('#m-tabs .t')),30);
   if(v==='mrr'&&!ch.mrrC)setTimeout(()=>showMRR('total',document.querySelector('#mrr-tabs .t')),30);
   if(v==='ltv')setTimeout(()=>initLTV(),30);
