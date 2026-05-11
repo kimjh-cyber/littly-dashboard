@@ -57,7 +57,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 .t.detail.active{background:#7c5ce8;color:#fff;}
 .t.detail{color:var(--text2);}
 .t.detail:hover{color:#7c5ce8;background:rgba(124,92,232,0.08);}
-.tsep{display:none;}
+.tsep{display:none!important;}
 .card{background:var(--bg2);border:0.5px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:10px;}
 .ct{font-size:12px;font-weight:500;color:var(--text2);margin-bottom:9px;}
 .r2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
@@ -102,7 +102,10 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
       <div class="brand">litt.ly <span>KPI</span></div>
       <div class="subtitle">결제 · 매출 · 성장 대시보드</div>
     </div>
-    <div class="last-updated" id="last-updated">로딩 중...</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button onclick="sessionStorage.clear();location.reload()" title="새로고침" style="font-size:10px;padding:3px 10px;border-radius:6px;border:0.5px solid var(--border);background:transparent;color:var(--text3);cursor:pointer">↺ 새로고침</button>
+      <div class="last-updated" id="last-updated">로딩 중...</div>
+    </div>
   </div>
 
   <div class="view-switch">
@@ -117,11 +120,10 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
       <div class="filter-row">
         <span class="filter-label">빠른 선택</span>
         <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
-          <button class="fq fq-w" onclick="applyQuick('w','all',this)">전체</button>
           <button class="fq fq-w" onclick="applyQuick('w',4,this)">최근 4주</button>
           <button class="fq fq-w" onclick="applyQuick('w',8,this)">최근 8주</button>
           <button class="fq fq-w" onclick="applyQuick('w',13,this)">최근 13주</button>
-          <div class="filter-divider fq-m"></div>
+          <button class="fq fq-w" onclick="applyQuick('w','all',this)">전체 기간</button>
           <button class="fq fq-m" onclick="applyQuick('m',3,this)">최근 3개월</button>
           <button class="fq fq-m" onclick="applyQuick('m',6,this)">최근 6개월</button>
           <button class="fq fq-m" onclick="applyQuick('m',12,this)">최근 12개월</button>
@@ -579,6 +581,9 @@ function initSelects(){
   });
 }
 function updateSelects(v){
+  // MRR/LTV는 기간 필터 의미없음 - 필터바 숨김
+  const fb = document.getElementById('filter-bar');
+  if(fb) fb.style.display = (v==='mrr'||v==='ltv') ? 'none' : '';
   const w=v==='w';
   ['rs-w','re-w'].forEach(id=>document.getElementById(id).style.display=w?'':'none');
   ['rs-m','re-m'].forEach(id=>document.getElementById(id).style.display=w?'none':'');
@@ -1105,9 +1110,24 @@ function mrrCfg(k){const m={
 async function loadData(){
   const sub=document.getElementById('loading-sub');
   try{
-    sub.textContent='시트 데이터 불러오는 중...';
-    const fetchJ = sheet => fetch(`${API}?sheet=${sheet}`).then(r=>{if(!r.ok)throw new Error(sheet+' 읽기 실패');return r.json();});
-    const [upgrades,payments,members] = await Promise.all([fetchJ('upgrades'),fetchJ('payments'),fetchJ('members')]);
+    // 세션 캐시 확인 (새로고침 시 재사용)
+    const cacheKey = 'littly_data_v3';
+    const cached = sessionStorage.getItem(cacheKey);
+    let upgrades, payments, members;
+    if(cached){
+      sub.textContent='캐시에서 불러오는 중...';
+      try{
+        const d = JSON.parse(cached);
+        upgrades = d.upgrades; payments = d.payments; members = d.members;
+      } catch(e){ sessionStorage.removeItem(cacheKey); }
+    }
+    if(!upgrades){
+      sub.textContent='구글 시트 연결 중...';
+      const fetchJ = sheet => fetch(`${API}?sheet=${sheet}`).then(r=>{if(!r.ok)throw new Error(sheet+' 읽기 실패');return r.json();});
+      [upgrades,payments,members] = await Promise.all([fetchJ('upgrades'),fetchJ('payments'),fetchJ('members')]);
+      // 세션 캐시 저장 (탭 닫으면 삭제)
+      try{ sessionStorage.setItem(cacheKey, JSON.stringify({upgrades,payments,members})); }catch(e){}
+    }
     sub.textContent='데이터 집계 중...';
     process(upgrades,payments,members);
     const now=new Date();
