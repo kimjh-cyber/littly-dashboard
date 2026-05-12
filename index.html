@@ -155,7 +155,13 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
           </div>
           <button onclick="genSummary('w')" id="w-summary-btn" style="font-size:11px;padding:4px 12px;border-radius:6px;border:0.5px solid rgba(26,110,245,0.3);background:var(--blue-dim);color:var(--blue);cursor:pointer">새로 생성</button>
         </div>
-        <div id="w-summary-text" style="font-size:13px;color:var(--text);line-height:1.7"></div>
+        <div id="w-summary-text" style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:12px"></div>
+        <!-- 대화창 -->
+        <div id="w-chat-messages" style="display:none;max-height:280px;overflow-y:auto;margin-bottom:10px;display:flex;flex-direction:column;gap:8px"></div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input id="w-chat-input" type="text" placeholder="추가로 궁금한 점을 물어보세요..." style="flex:1;font-size:12px;padding:7px 12px;border-radius:8px;border:0.5px solid var(--border);background:var(--bg);color:var(--text);outline:none" onkeydown="if(event.key==='Enter')sendChat('w')" />
+          <button onclick="sendChat('w')" style="font-size:12px;padding:7px 14px;border-radius:8px;border:none;background:var(--blue);color:#fff;cursor:pointer">전송</button>
+        </div>
       </div>
       <div class="kg" id="w-kpi"></div>
       <div class="tb" id="w-tabs">
@@ -198,7 +204,12 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
           </div>
           <button onclick="genSummary('m')" id="m-summary-btn" style="font-size:11px;padding:4px 12px;border-radius:6px;border:0.5px solid rgba(26,110,245,0.3);background:var(--blue-dim);color:var(--blue);cursor:pointer">새로 생성</button>
         </div>
-        <div id="m-summary-text" style="font-size:13px;color:var(--text);line-height:1.7"></div>
+        <div id="m-summary-text" style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:12px"></div>
+        <div id="m-chat-messages" style="display:none;max-height:280px;overflow-y:auto;margin-bottom:10px;flex-direction:column;gap:8px"></div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input id="m-chat-input" type="text" placeholder="추가로 궁금한 점을 물어보세요..." style="flex:1;font-size:12px;padding:7px 12px;border-radius:8px;border:0.5px solid var(--border);background:var(--bg);color:var(--text);outline:none" onkeydown="if(event.key==='Enter')sendChat('m')" />
+          <button onclick="sendChat('m')" style="font-size:12px;padding:7px 14px;border-radius:8px;border:none;background:var(--blue);color:#fff;cursor:pointer">전송</button>
+        </div>
       </div>
       <div class="kg" id="m-kpi"></div>
       <div id="m-proj-banner" style="display:none;background:linear-gradient(135deg,rgba(26,110,245,0.04),rgba(11,158,99,0.04));border:0.5px solid rgba(26,110,245,0.15);border-radius:12px;padding:14px 18px;margin-bottom:12px"></div>
@@ -324,7 +335,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 
 <script>
 // ━━━ Apps Script URL (여기만 수정하면 됩니다) ━━━
-const API = 'https://script.google.com/macros/s/AKfycbzwecTQcj6NWkMxvUhrLCG9pXckv18-fgiEc4_yHJ2UYXiSWx0k751tddwfKAcmkzWq/exec';
+const API = 'https://script.google.com/macros/s/AKfycbxgrqa1abVyUezjEXMXqeLOtaPCoR2znhvyt0amuVdOI60yntO7icQkOJBofw4_0fW0/exec';
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 function parseCSV(text){
@@ -1145,9 +1156,16 @@ async function loadData(){
       } catch(e){ sessionStorage.removeItem(cacheKey); }
     }
     if(!upgrades){
-      sub.textContent='구글 시트 연결 중...';
-      const fetchJ = sheet => fetch(`${API}?sheet=${sheet}`).then(r=>{if(!r.ok)throw new Error(sheet+' 읽기 실패');return r.json();});
-      [upgrades,payments,members] = await Promise.all([fetchJ('upgrades'),fetchJ('payments'),fetchJ('members')]);
+      sub.textContent='📊 데이터 불러오는 중... (약 5~10초 소요)';
+      const fetchJ = sheet => fetch(`${API}?sheet=${sheet}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(sheet+' 읽기 실패');return r.json();});
+      // 병렬 로딩 + 진행상황 표시
+      let done=0;
+      const tick = ()=>{ done++; sub.textContent=`📊 데이터 불러오는 중... (${done}/3)`; };
+      [upgrades,payments,members] = await Promise.all([
+        fetchJ('upgrades').then(d=>{tick();return d;}),
+        fetchJ('payments').then(d=>{tick();return d;}),
+        fetchJ('members').then(d=>{tick();return d;})
+      ]);
       // 세션 캐시 저장 (탭 닫으면 삭제)
       try{ sessionStorage.setItem(cacheKey, JSON.stringify({upgrades,payments,members})); }catch(e){}
     }
@@ -1739,6 +1757,96 @@ function showLTV(k, b) {
         {label:'Brand',data:LTV.churnCntBizData||[],backgroundColor:C2+'cc',borderRadius:4,borderWidth:0,stack:'s'},
       ]
     },v=>v.toLocaleString()+'명');
+  }
+}
+
+// ── 대화형 AI 채팅 ──
+const chatHistory = {w:[], m:[]};
+
+function renderChatMsg(view, role, text) {
+  const el = document.getElementById(`${view}-chat-messages`);
+  if(!el) return;
+  el.style.display = 'flex';
+  const isUser = role === 'user';
+  const bubble = document.createElement('div');
+  bubble.style.cssText = `display:flex;flex-direction:column;align-items:${isUser?'flex-end':'flex-start'};`;
+  bubble.innerHTML = `
+    <div style="max-width:85%;padding:8px 12px;border-radius:${isUser?'12px 12px 2px 12px':'12px 12px 12px 2px'};
+      background:${isUser?'var(--blue)':'var(--bg3)'};
+      color:${isUser?'#fff':'var(--text)'};
+      font-size:12px;line-height:1.6;border:${isUser?'none':'0.5px solid var(--border)'}"
+    >${text}</div>`;
+  el.appendChild(bubble);
+  el.scrollTop = el.scrollHeight;
+}
+
+async function sendChat(view) {
+  const input = document.getElementById(`${view}-chat-input`);
+  const question = input.value.trim();
+  if(!question) return;
+  input.value = '';
+
+  // 사용자 메시지 표시
+  renderChatMsg(view, 'user', question);
+  chatHistory[view].push({role:'user', content: question});
+
+  // 로딩 표시
+  const loadingId = `${view}-chat-loading`;
+  const el = document.getElementById(`${view}-chat-messages`);
+  const loading = document.createElement('div');
+  loading.id = loadingId;
+  loading.style.cssText = 'align-self:flex-start;font-size:11px;color:var(--text3);padding:6px 10px;';
+  loading.textContent = '✦ 생각 중...';
+  el.appendChild(loading);
+  el.scrollTop = el.scrollHeight;
+
+  // KPI 컨텍스트 포함한 시스템 프롬프트
+  const isW = view === 'w';
+  const i = isW ? wR.e : mR.e;
+  const p = i > 0 ? i - 1 : 0;
+  const src = isW ? WK : MO;
+  const lb = isW ? WK.lb[i] : MO.lb[i];
+  const fmt = v => Math.round(v/10000).toLocaleString()+'만원';
+  const pct = (a,b) => b>0?((a-b)/b*100).toFixed(1):'0';
+
+  const systemPrompt = `당신은 litt.ly SaaS 스타트업의 데이터 분석가입니다. 아래 KPI 데이터를 기반으로 질문에 답하세요.
+
+기간: ${lb} (${isW?'주간':'월간'})
+- 신규 회원가입: ${src.signup[i].toLocaleString()}명 (${pct(src.signup[i],src.signup[p])}% 변화)
+- 전체 전환: ${src.total[i]}건 / 총매출: ${fmt(src.rev[i])} / 순매출: ${fmt(src.net_r[i])}
+- 신규 결제: ${src.new_c[i]}건 / 갱신: ${src.ren_c[i]}건
+- Pro: ${src.pro_c[i]}건 ${fmt(src.pro_r[i])} / Brand: ${src.biz_c[i]}건 ${fmt(src.biz_r[i])}
+- 월결제: ${src.mon_c[i]}건 / 연결제: ${src.yr_c[i]}건
+- 취소: ${src.cancel_c[i]}건 / 전환율: ${src.signup[i]>0?(src.total[i]/src.signup[i]*100).toFixed(2):'0'}%
+
+한국어로 간결하게 답변해주세요.`;
+
+  // 대화 히스토리 포함해서 전송
+  const messages = [
+    {role:'user', content: systemPrompt + '\n\n위 데이터를 기반으로 다음 질문에 답해주세요: ' + question},
+    ...chatHistory[view].slice(0,-1).map(m => ({role:m.role, content:m.content}))
+  ];
+
+  // 실제로는 첫 메시지에 컨텍스트 포함, 이후는 히스토리만
+  const apiMessages = chatHistory[view].length === 1
+    ? [{role:'user', content: systemPrompt + '\n\n' + question}]
+    : [{role:'user', content: systemPrompt + '\n\n첫 번째 질문: ' + (chatHistory[view][0]?.content||'')},
+       ...chatHistory[view].slice(1).map(m=>({role:m.role,content:m.content}))];
+
+  try {
+    const prompt = encodeURIComponent(JSON.stringify(apiMessages));
+    const res = await fetch(`${API}?sheet=chat&messages=${prompt}`);
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+
+    // 로딩 제거 후 답변 표시
+    document.getElementById(loadingId)?.remove();
+    const answer = data.text;
+    renderChatMsg(view, 'assistant', answer);
+    chatHistory[view].push({role:'assistant', content: answer});
+  } catch(e) {
+    document.getElementById(loadingId)?.remove();
+    renderChatMsg(view, 'assistant', '❌ 오류가 발생했습니다. 다시 시도해주세요.');
   }
 }
 
