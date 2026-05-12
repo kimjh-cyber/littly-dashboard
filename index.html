@@ -1834,12 +1834,15 @@ async function sendChat(view) {
        ...chatHistory[view].slice(1).map(m=>({role:m.role,content:m.content}))];
 
   try {
-    const prompt = encodeURIComponent(JSON.stringify(apiMessages));
-    const res = await fetch(`${API}?sheet=chat&messages=${prompt}`);
+    // 대화 히스토리 요약 (URL 길이 제한 대응)
+    const histSummary = chatHistory[view].slice(0,-1).slice(-4)
+      .map(m=>`${m.role==='user'?'Q':'A'}: ${m.content.slice(0,100)}`).join(' | ');
+    const fullPrompt = systemPrompt +
+      (histSummary ? `\n\n이전 대화:\n${histSummary}` : '') +
+      `\n\n질문: ${question}`;
+    const res = await fetch(`${API}?sheet=summary&prompt=${encodeURIComponent(fullPrompt)}`);
     const data = await res.json();
     if(data.error) throw new Error(data.error);
-
-    // 로딩 제거 후 답변 표시
     document.getElementById(loadingId)?.remove();
     const answer = data.text;
     renderChatMsg(view, 'assistant', answer);
