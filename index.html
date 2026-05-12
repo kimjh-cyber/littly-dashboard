@@ -157,7 +157,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
         </div>
         <div id="w-summary-text" style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:12px"></div>
         <!-- 대화창 -->
-        <div id="w-chat-messages" style="display:none;max-height:280px;overflow-y:auto;margin-bottom:10px;display:flex;flex-direction:column;gap:8px"></div>
+        <div id="w-chat-messages" style="display:none;max-height:300px;overflow-y:auto;margin-bottom:10px;flex-direction:column;gap:6px;padding:4px 0"></div>
         <div style="display:flex;gap:6px;margin-top:8px">
           <input id="w-chat-input" type="text" placeholder="추가로 궁금한 점을 물어보세요..." style="flex:1;font-size:12px;padding:7px 12px;border-radius:8px;border:0.5px solid var(--border);background:var(--bg);color:var(--text);outline:none" onkeydown="if(event.key==='Enter')sendChat('w')" />
           <button onclick="sendChat('w')" style="font-size:12px;padding:7px 14px;border-radius:8px;border:none;background:var(--blue);color:#fff;cursor:pointer">전송</button>
@@ -205,7 +205,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
           <button onclick="genSummary('m')" id="m-summary-btn" style="font-size:11px;padding:4px 12px;border-radius:6px;border:0.5px solid rgba(26,110,245,0.3);background:var(--blue-dim);color:var(--blue);cursor:pointer">새로 생성</button>
         </div>
         <div id="m-summary-text" style="font-size:13px;color:var(--text);line-height:1.7;margin-bottom:12px"></div>
-        <div id="m-chat-messages" style="display:none;max-height:280px;overflow-y:auto;margin-bottom:10px;flex-direction:column;gap:8px"></div>
+        <div id="m-chat-messages" style="display:none;max-height:300px;overflow-y:auto;margin-bottom:10px;flex-direction:column;gap:6px;padding:4px 0"></div>
         <div style="display:flex;gap:6px;margin-top:8px">
           <input id="m-chat-input" type="text" placeholder="추가로 궁금한 점을 물어보세요..." style="flex:1;font-size:12px;padding:7px 12px;border-radius:8px;border:0.5px solid var(--border);background:var(--bg);color:var(--text);outline:none" onkeydown="if(event.key==='Enter')sendChat('m')" />
           <button onclick="sendChat('m')" style="font-size:12px;padding:7px 14px;border-radius:8px;border:none;background:var(--blue);color:#fff;cursor:pointer">전송</button>
@@ -1763,19 +1763,36 @@ function showLTV(k, b) {
 // ── 대화형 AI 채팅 ──
 const chatHistory = {w:[], m:[]};
 
+function mdToHtml(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/^### (.+)$/gm,'<div style="font-size:12px;font-weight:600;color:var(--text);margin:8px 0 4px">$1</div>')
+    .replace(/^## (.+)$/gm,'<div style="font-size:13px;font-weight:600;color:var(--text);margin:10px 0 4px">$1</div>')
+    .replace(/^# (.+)$/gm,'<div style="font-size:14px;font-weight:600;color:var(--text);margin:10px 0 6px">$1</div>')
+    .replace(/^- (.+)$/gm,'<div style="padding-left:12px;margin:2px 0">• $1</div>')
+    .replace(/^\d+\. (.+)$/gm,'<div style="padding-left:12px;margin:2px 0">$1</div>')
+    .replace(/<br><br>/g,'</p><p style="margin:6px 0">')
+    .replace(/<br>/g,'<br>')
+    .split('\n\n').filter(s=>s.trim())
+    .map(s=>s.startsWith('<div')||s.startsWith('<p')?s:`<p style="margin:4px 0;line-height:1.7">${s}</p>`)
+    .join('');
+}
+
 function renderChatMsg(view, role, text) {
   const el = document.getElementById(`${view}-chat-messages`);
   if(!el) return;
   el.style.display = 'flex';
   const isUser = role === 'user';
   const bubble = document.createElement('div');
-  bubble.style.cssText = `display:flex;flex-direction:column;align-items:${isUser?'flex-end':'flex-start'};`;
+  bubble.style.cssText = `display:flex;flex-direction:column;align-items:${isUser?'flex-end':'flex-start'};margin-bottom:2px`;
+  const rendered = isUser ? text : mdToHtml(text);
   bubble.innerHTML = `
-    <div style="max-width:85%;padding:8px 12px;border-radius:${isUser?'12px 12px 2px 12px':'12px 12px 12px 2px'};
-      background:${isUser?'var(--blue)':'var(--bg3)'};
+    <div style="max-width:88%;padding:9px 13px;border-radius:${isUser?'14px 14px 3px 14px':'14px 14px 14px 3px'};
+      background:${isUser?'var(--blue)':'var(--bg2)'};
       color:${isUser?'#fff':'var(--text)'};
-      font-size:12px;line-height:1.6;border:${isUser?'none':'0.5px solid var(--border)'}"
-    >${text}</div>`;
+      font-size:12px;line-height:1.65;
+      border:${isUser?'none':'0.5px solid var(--border)'};"
+    >${rendered}</div>`;
   el.appendChild(bubble);
   el.scrollTop = el.scrollHeight;
 }
