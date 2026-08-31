@@ -965,9 +965,12 @@ function renderPortion(view,k,idx,tid,gid){
 
   // 기간 라벨
   const lbs = view==='w' ? WK.lb : MO.lb;
+  const totalLen = lbs.length;
   const lbRange = R.s===R.e
     ? lbs[R.e]
-    : `${lbs[R.s]} ~ ${lbs[R.e]}`;
+    : (R.s===0 && R.e===totalLen-1)
+      ? '전체 기간'
+      : `${lbs[R.s]} ~ ${lbs[R.e]}`;
 
   const totC = sum(src.total);
   const totR = sum(src.rev);
