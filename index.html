@@ -590,9 +590,13 @@ function initSelects(){
     re.innerHTML+=`<option value="${i}"${i===WK.lb.length-1?' selected':''}>${l}</option>`;
   });
 
-  // 월간 셀렉트 - 26-01 기본 선택
+  // 월간 셀렉트 - 유료 서비스 시작(23-05) 기준, 26-01 기본 선택
   const mDefS = MO.lb.findIndex(l => l==='26-01');
   MO.lb.forEach((l,i)=>{
+    // 23-05 이전 월은 드롭다운에서 제외 (업그레이드 데이터 없음)
+    const [yy,mm] = l.split('-').map(Number);
+    const fullYear = yy < 50 ? 2000+yy : 1900+yy;
+    if(fullYear < 2023 || (fullYear===2023 && mm < 5)) return;
     ms.innerHTML+=`<option value="${i}"${i===Math.max(0,mDefS)?' selected':''}>${l}</option>`;
     me.innerHTML+=`<option value="${i}"${i===MO.lb.length-1?' selected':''}>${l}</option>`;
   });
@@ -953,27 +957,34 @@ function makeTable(lb, label, rows, colDefs, totC, totR, mode){
 }
 
 function renderPortion(view,k,idx,tid,gid){
-  const src=view==='w'?WK:MO, lb=view==='w'?WK.lb[idx]:MO.lb[idx];
-  const totC=src.total[idx], totR=src.rev[idx];
+  const src=view==='w'?WK:MO;
+  const R=view==='w'?wR:mR;
+  // 선택된 기간 전체 합산
+  const sum=(arr)=>arr.slice(R.s,R.e+1).reduce((a,v)=>a+(v||0),0);
+  const lbRange = R.s===R.e
+    ? (view==='w'?WK.lb[idx]:MO.lb[idx])
+    : `${view==='w'?WK.lb[R.s]:MO.lb[R.s]} ~ ${view==='w'?WK.lb[R.e]:MO.lb[R.e]}`;
+
+  const totC=sum(src.total), totR=sum(src.rev);
 
   const configs={
     newrenew:{
       label:'신규/갱신 × 플랜',
       cols:['Pro','Brand'],
-      cntRows:[['신규',src.new_pro_c[idx],src.new_biz_c[idx],src.new_c[idx]],['갱신',src.ren_pro_c[idx],src.ren_biz_c[idx],src.ren_c[idx]],['합계',src.pro_c[idx],src.biz_c[idx],totC]],
-      revRows:[['신규',src.new_pro_r[idx],src.new_biz_r[idx],src.new_r[idx]],['갱신',src.ren_pro_r[idx],src.ren_biz_r[idx],src.ren_r[idx]],['합계',src.pro_r[idx],src.biz_r[idx],totR]],
+      cntRows:[['신규',sum(src.new_pro_c),sum(src.new_biz_c),sum(src.new_c)],['갱신',sum(src.ren_pro_c),sum(src.ren_biz_c),sum(src.ren_c)],['합계',sum(src.pro_c),sum(src.biz_c),totC]],
+      revRows:[['신규',sum(src.new_pro_r),sum(src.new_biz_r),sum(src.new_r)],['갱신',sum(src.ren_pro_r),sum(src.ren_biz_r),sum(src.ren_r)],['합계',sum(src.pro_r),sum(src.biz_r),totR]],
     },
     paytype:{
       label:'결제방식 × 플랜',
       cols:['Pro','Brand'],
-      cntRows:[['월결제',src.pm_c[idx],src.bm_c[idx],src.mon_c[idx]],['연결제',src.py_c[idx],src.by_c[idx],src.yr_c[idx]],['합계',src.pro_c[idx],src.biz_c[idx],totC]],
-      revRows:[['월결제',src.pm_r[idx],src.bm_r[idx],src.mon_r[idx]],['연결제',src.py_r[idx],src.by_r[idx],src.yr_r[idx]],['합계',src.pro_r[idx],src.biz_r[idx],totR]],
+      cntRows:[['월결제',sum(src.pm_c),sum(src.bm_c),sum(src.mon_c)],['연결제',sum(src.py_c),sum(src.by_c),sum(src.yr_c)],['합계',sum(src.pro_c),sum(src.biz_c),totC]],
+      revRows:[['월결제',sum(src.pm_r),sum(src.bm_r),sum(src.mon_r)],['연결제',sum(src.py_r),sum(src.by_r),sum(src.yr_r)],['합계',sum(src.pro_r),sum(src.biz_r),totR]],
     },
     plan:{
       label:'플랜 × 결제방식',
       cols:['월결제','연결제'],
-      cntRows:[['Pro',src.pm_c[idx],src.py_c[idx],src.pro_c[idx]],['Brand',src.bm_c[idx],src.by_c[idx],src.biz_c[idx]],['합계',src.mon_c[idx],src.yr_c[idx],totC]],
-      revRows:[['Pro',src.pm_r[idx],src.py_r[idx],src.pro_r[idx]],['Brand',src.bm_r[idx],src.by_r[idx],src.biz_r[idx]],['합계',src.mon_r[idx],src.yr_r[idx],totR]],
+      cntRows:[['Pro',sum(src.pm_c),sum(src.py_c),sum(src.pro_c)],['Brand',sum(src.bm_c),sum(src.by_c),sum(src.biz_c)],['합계',sum(src.mon_c),sum(src.yr_c),totC]],
+      revRows:[['Pro',sum(src.pm_r),sum(src.py_r),sum(src.pro_r)],['Brand',sum(src.bm_r),sum(src.by_r),sum(src.biz_r)],['합계',sum(src.mon_r),sum(src.yr_r),totR]],
     },
   };
 
@@ -1011,7 +1022,7 @@ function renderPortion(view,k,idx,tid,gid){
   const cfg=configs[k]; if(!cfg)return;
   document.getElementById(tid).textContent='';
   document.getElementById(gid).innerHTML=`
-    <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:12px">${lb} 기준 · ${cfg.label} 교차 분석</div>
+    <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:12px">${lbRange} 기준 · ${cfg.label} 교차 분석</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
       ${makeTable(lb,cfg.label,cfg.cntRows,cfg.cols,totC,totR,'cnt')}
       ${makeTable(lb,cfg.label,cfg.revRows,cfg.cols,totC,totR,'rev')}
