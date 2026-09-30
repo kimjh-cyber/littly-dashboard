@@ -335,7 +335,7 @@ body{background:var(--bg);color:var(--text);font-family:'Pretendard','Apple SD G
 
 <script>
 // ━━━ Apps Script URL (여기만 수정하면 됩니다) ━━━
-const API='https://script.google.com/macros/s/AKfycbzowc5tAQ5YeskORWz33DW8rEUqCzj2UZ4WaOiiSjpE35eqmNdxSX-bURCQNmPyljQ/exec';
+const API='https://script.google.com/macros/s/AKfycbwi9qQRvf2gPVDN_izbtxw9W2E6_ZGFrXmcNkJemvGLLPnFDqKXsljjeMc2yccP_HdA/exec';
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 function parseCSV(text){
@@ -427,7 +427,7 @@ function process(upgrades,payments,members){
 
   // 당일 재결제 취소 제외 후 실제 이탈만 집계
   const cancelRows=joined.filter(p=>p.취소일&&!sameDayRepayKeys.has(p.id)).map(p=>({...p,cancelDate:toD(p.취소일)}));
-  const memberRows=members.map(m=>({date:toD(m.가입일||m['가입일'])})).filter(m=>m.date);
+  const memberRows=(members.length&&members[0].n!==undefined)?members.map(m=>({date:toD(m.d+'T12:00:00'),n:m.n})).filter(m=>m.date):members.map(m=>({date:toD(m.가입일||m['가입일']),n:1})).filter(m=>m.date);
 
   // 주간
   const wkD={};
@@ -453,7 +453,7 @@ function process(upgrades,payments,members){
     });
   });
   cancelRows.forEach(p=>{addTo(wkD,getWk(p.cancelDate),s=>{s.cancel_c++;s.cancel_r+=(p.취소금액-p.환불수수료);});});
-  memberRows.forEach(m=>{addTo(wkD,getWk(m.date),s=>{s.signup++;});});
+  memberRows.forEach(m=>{addTo(wkD,getWk(m.date),s=>{s.signup+=m.n;});});
 
   const sortWks=Object.keys(wkD).sort((a,b)=>{const[ay,aw]=a.split('_').map(Number),[by,bw]=b.split('_').map(Number);return ay!==by?ay-by:aw-bw;});
   WK.lb=sortWks.map(wk=>{const[y,w]=wk.split('_');return y==='2026'?w+'주':y.slice(2)+'-'+w+'주';});
@@ -494,7 +494,7 @@ function process(upgrades,payments,members){
     });
   });
   cancelRows.forEach(p=>{addTo(moD,getMo(p.cancelDate),s=>{s.cancel_c++;s.cancel_r+=(p.취소금액-p.환불수수료);});});
-  memberRows.forEach(m=>{addTo(moD,getMo(m.date),s=>{s.signup++;});});
+  memberRows.forEach(m=>{addTo(moD,getMo(m.date),s=>{s.signup+=m.n;});});
   const sortMos=Object.keys(moD).sort();
   MO.lb=sortMos.map(mo=>{const[y,m]=mo.split('-');return y.slice(2)+'-'+m;});
   MO._mos=sortMos;
@@ -1187,7 +1187,7 @@ async function loadData(){
   const sub=document.getElementById('loading-sub');
   try{
     // 세션 캐시 확인 (새로고침 시 재사용)
-    const cacheKey = 'littly_data_v3';
+    const cacheKey = 'littly_data_v4';
     const cached = sessionStorage.getItem(cacheKey);
     let upgrades, payments, members;
     if(cached){
@@ -1198,8 +1198,8 @@ async function loadData(){
       } catch(e){ sessionStorage.removeItem(cacheKey); }
     }
     if(!upgrades){
-      sub.textContent='📊 데이터 불러오는 중... (약 5~10초 소요)';
-      const fetchJ = sheet => fetch(`${API}?sheet=${sheet}`,{cache:'no-store'}).then(r=>{if(!r.ok)throw new Error(sheet+' 읽기 실패');return r.json();});
+      sub.textContent='📊 데이터 불러오는 중... (약 5~10초 소요, 처음 한 번만)';
+      const fetchJ = async sheet => { let last; for (let t=0;t<2;t++){ try{ const r=await fetch(`${API}?sheet=${sheet}`,{cache:'no-store'}); if(!r.ok) throw new Error(sheet+' 읽기 실패 (HTTP '+r.status+')'); return await r.json(); }catch(e){ last=(e&&e.message&&e.message.indexOf('읽기 실패')>=0)?e:new Error(sheet+' 읽기 실패 ('+(e&&e.message?e.message:e)+')'); if(t===0) await new Promise(z=>setTimeout(z,1500)); } } throw last; };
       // 병렬 로딩 + 진행상황 표시
       let done=0;
       const tick = ()=>{ done++; sub.textContent=`📊 데이터 불러오는 중... (${done}/3)`; };
